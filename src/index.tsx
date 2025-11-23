@@ -1025,6 +1025,12 @@ function generateATMTimelineInsights(comprehensiveData: any): string {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
+// Noindex all responses until launch
+app.use('*', async (c, next) => {
+  await next()
+  c.res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+})
+
 // Enable CORS for API routes
 app.use('/api/*', cors())
 
