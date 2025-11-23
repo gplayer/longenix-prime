@@ -1,0 +1,16 @@
+DELETE FROM health_domains;
+DELETE FROM health_optimization_assessments;
+DELETE FROM aging_hallmarks;
+DELETE FROM aging_assessments;
+DELETE FROM assessment_drafts;
+DELETE FROM atm_framework_entries;
+DELETE FROM assessment_data;
+DELETE FROM risk_calculations;
+DELETE FROM biological_age;
+DELETE FROM comprehensive_assessments;
+DELETE FROM lifestyle_assessments;
+DELETE FROM biomarkers;
+DELETE FROM clinical_assessments;
+DELETE FROM assessment_reports;
+DELETE FROM assessment_sessions;
+DELETE FROM patients;

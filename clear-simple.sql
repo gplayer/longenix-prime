@@ -1,0 +1,9 @@
+DELETE FROM risk_calculations;
+DELETE FROM biological_age;
+DELETE FROM comprehensive_assessments;
+DELETE FROM biomarkers;
+DELETE FROM clinical_assessments;
+DELETE FROM lifestyle_assessments;
+DELETE FROM assessment_reports;
+DELETE FROM assessment_sessions;
+DELETE FROM patients;

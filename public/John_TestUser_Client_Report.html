@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Assessment Results - John TestUser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+        }
+        
+        .health-gauge {
+            width: 120px;
+            height: 60px;
+            border-radius: 120px 120px 0 0;
+            position: relative;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        
+        .gauge-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            border-radius: 120px 120px 0 0;
+            transition: all 0.3s ease;
+        }
+        
+        .gauge-low { background: linear-gradient(45deg, #10b981, #34d399); }
+        .gauge-moderate { background: linear-gradient(45deg, #f59e0b, #fbbf24); }
+        .gauge-high { background: linear-gradient(45deg, #ef4444, #f87171); }
+        
+        .risk-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .risk-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white no-print">
+        <div class="max-w-4xl mx-auto px-6 py-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">Your Health Assessment Results</h1>
+                    <p class="text-blue-100">Personalized Health Insights</p>
+                </div>
+                <button onclick="window.print()" class="bg-white bg-opacity-20 px-4 py-2 rounded-lg hover:bg-opacity-30 transition">
+                    <i class="fas fa-download mr-2"></i>Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Header -->
+    <div class="hidden print:block bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 text-center">
+        <h1 class="text-2xl font-bold">Your Health Assessment Results</h1>
+        <p class="mt-2">Dr. Graham Player, Ph.D — Longenix Health</p>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-6 py-8">
+        <!-- Patient Info -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-800">John TestUser</h2>
+                    <p class="text-gray-600">Age 47 • Male • Assessment Date: August 30, 2025</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-bold text-blue-600">47.3</div>
+                    <div class="text-sm text-gray-600">Biological Age</div>
+                    <div class="text-xs text-orange-600 font-medium">0.3 years accelerated</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-chart-line text-blue-600 mr-2"></i>Your Health Summary
+            </h2>
+            
+            <!-- Overall Health Score -->
+            <div class="text-center mb-6">
+                <div class="health-gauge mx-auto mb-4" style="background: #e5e7eb;">
+                    <div class="gauge-fill gauge-moderate" style="height: 70%;"></div>
+                </div>
+                <div class="text-3xl font-bold text-amber-600 mb-2">GOOD</div>
+                <div class="text-gray-600">Overall Health Status</div>
+            </div>
+
+            <!-- Key Findings -->
+            <div class="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
+                <h3 class="font-semibold text-amber-800 mb-2">Key Findings:</h3>
+                <ul class="text-amber-700 space-y-1">
+                    <li>• <strong>Immediate attention needed:</strong> Cardiovascular health requires intervention</li>
+                    <li>• <strong>Good news:</strong> Low diabetes risk and excellent metabolic health</li>
+                    <li>• <strong>Opportunity:</strong> Kidney health can be optimized with lifestyle changes</li>
+                    <li>• <strong>Overall:</strong> Strong foundation with specific areas to address</li>
+                </ul>
+            </div>
+
+            <!-- Top 3 Priorities -->
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="text-center p-4 bg-red-50 rounded-lg">
+                    <i class="fas fa-heartbeat text-red-600 text-2xl mb-2"></i>
+                    <div class="font-semibold text-red-800">Priority #1</div>
+                    <div class="text-sm text-red-600">Heart Health</div>
+                </div>
+                <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                    <i class="fas fa-kidneys text-yellow-600 text-2xl mb-2"></i>
+                    <div class="font-semibold text-yellow-800">Priority #2</div>
+                    <div class="text-sm text-yellow-600">Kidney Support</div>
+                </div>
+                <div class="text-center p-4 bg-purple-50 rounded-lg">
+                    <i class="fas fa-brain text-purple-600 text-2xl mb-2"></i>
+                    <div class="font-semibold text-purple-800">Priority #3</div>
+                    <div class="text-sm text-purple-600">Cognitive Protection</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Risk Dashboard -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-shield-alt text-blue-600 mr-2"></i>Your Disease Risk Profile
+            </h2>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Cardiovascular -->
+                <div class="risk-card bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-heartbeat text-red-600 text-xl mr-3"></i>
+                        <div>
+                            <h3 class="font-semibold text-red-800">Heart Health</h3>
+                            <p class="text-xs text-red-600">10-year risk</p>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-red-600 mb-2">100%</div>
+                        <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-semibold">NEEDS ATTENTION</span>
+                    </div>
+                </div>
+
+                <!-- Diabetes -->
+                <div class="risk-card bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-tint text-green-600 text-xl mr-3"></i>
+                        <div>
+                            <h3 class="font-semibold text-green-800">Blood Sugar</h3>
+                            <p class="text-xs text-green-600">10-year risk</p>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-green-600 mb-2">1%</div>
+                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">EXCELLENT</span>
+                    </div>
+                </div>
+
+                <!-- Kidney -->
+                <div class="risk-card bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-kidneys text-yellow-600 text-xl mr-3"></i>
+                        <div>
+                            <h3 class="font-semibold text-yellow-800">Kidney Health</h3>
+                            <p class="text-xs text-yellow-600">10-year risk</p>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-yellow-600 mb-2">15%</div>
+                        <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">MONITOR</span>
+                    </div>
+                </div>
+
+                <!-- Cancer -->
+                <div class="risk-card bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-ribbon text-green-600 text-xl mr-3"></i>
+                        <div>
+                            <h3 class="font-semibold text-green-800">Cancer Risk</h3>
+                            <p class="text-xs text-green-600">10-year risk</p>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-green-600 mb-2">8%</div>
+                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">LOW RISK</span>
+                    </div>
+                </div>
+
+                <!-- Cognitive -->
+                <div class="risk-card bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-brain text-green-600 text-xl mr-3"></i>
+                        <div>
+                            <h3 class="font-semibold text-green-800">Brain Health</h3>
+                            <p class="text-xs text-green-600">10-year risk</p>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-green-600 mb-2">3%</div>
+                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">LOW RISK</span>
+                    </div>
+                </div>
+
+                <!-- Metabolic -->
+                <div class="risk-card bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                    <div class="flex items-center mb-3">
+                        <i class="fas fa-weight text-green-600 text-xl mr-3"></i>
+                        <div>
+                            <h3 class="font-semibold text-green-800">Metabolic Health</h3>
+                            <p class="text-xs text-green-600">Current status</p>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-green-600 mb-2">5%</div>
+                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">EXCELLENT</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- What This Means -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-lightbulb text-blue-600 mr-2"></i>What This Means for You
+            </h2>
+            
+            <div class="space-y-4">
+                <div class="p-4 bg-blue-50 rounded-lg">
+                    <h3 class="font-semibold text-blue-800 mb-2">🎯 The Good News</h3>
+                    <p class="text-blue-700">Your diabetes risk is excellent (1%) and your metabolic health is strong. You have a solid foundation to build on, and your body is responding well to healthy lifestyle choices.</p>
+                </div>
+
+                <div class="p-4 bg-amber-50 rounded-lg">
+                    <h3 class="font-semibold text-amber-800 mb-2">⚠️ Areas Requiring Attention</h3>
+                    <p class="text-amber-700">Your cardiovascular risk assessment indicates immediate intervention is needed. This is primarily driven by blood pressure and cholesterol markers that can be significantly improved with targeted approaches.</p>
+                </div>
+
+                <div class="p-4 bg-green-50 rounded-lg">
+                    <h3 class="font-semibold text-green-800 mb-2">🌱 Opportunities for Improvement</h3>
+                    <p class="text-green-700">Your kidney health (15% risk) and biological age (0.3 years accelerated) show clear opportunities for optimization through nutrition, hydration, and targeted supplementation.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Your Action Plan -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-tasks text-blue-600 mr-2"></i>Your Personalized Action Plan
+            </h2>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-3">Immediate Priorities (Next 30 Days)</h3>
+                    <div class="space-y-2">
+                        <div class="flex items-center p-3 bg-red-50 rounded-lg">
+                            <i class="fas fa-heart text-red-600 mr-3"></i>
+                            <span class="text-sm text-red-800">Cardiovascular intervention protocol</span>
+                        </div>
+                        <div class="flex items-center p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-tint text-blue-600 mr-3"></i>
+                            <span class="text-sm text-blue-800">Kidney support nutrition plan</span>
+                        </div>
+                        <div class="flex items-center p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-leaf text-green-600 mr-3"></i>
+                            <span class="text-sm text-green-800">Targeted supplement protocol</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-3">Lifestyle Focus Areas</h3>
+                    <div class="space-y-2">
+                        <div class="flex items-center p-3 bg-purple-50 rounded-lg">
+                            <i class="fas fa-utensils text-purple-600 mr-3"></i>
+                            <span class="text-sm text-purple-800">Heart-healthy nutrition optimization</span>
+                        </div>
+                        <div class="flex items-center p-3 bg-indigo-50 rounded-lg">
+                            <i class="fas fa-dumbbell text-indigo-600 mr-3"></i>
+                            <span class="text-sm text-indigo-800">Cardiovascular exercise progression</span>
+                        </div>
+                        <div class="flex items-center p-3 bg-pink-50 rounded-lg">
+                            <i class="fas fa-bed text-pink-600 mr-3"></i>
+                            <span class="text-sm text-pink-800">Sleep quality improvement (current: 3/10)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h3 class="font-semibold text-gray-800 mb-2">Next Steps with Dr. Player</h3>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-1">Follow-up Schedule:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• 2-week check-in: Protocol adjustments</li>
+                            <li>• 6-week assessment: Progress evaluation</li>
+                            <li>• 3-month re-assessment: Full health review</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-1">Testing Recommendations:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Advanced lipid panel in 6 weeks</li>
+                            <li>• Kidney function markers in 8 weeks</li>
+                            <li>• Comprehensive metabolic panel in 3 months</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Understanding Your Results -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-info-circle text-blue-600 mr-2"></i>Understanding Your Assessment
+            </h2>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-3">What We Measured</h3>
+                    <p class="text-gray-600 text-sm mb-3">
+                        Your assessment analyzed comprehensive health markers across 7 key disease categories using evidence-based medical algorithms and your personal health data.
+                    </p>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• Laboratory biomarkers and ratios</li>
+                        <li>• Lifestyle and environmental factors</li>
+                        <li>• Family history and genetic predisposition</li>
+                        <li>• Current health status and symptoms</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-3">Why This Matters</h3>
+                    <p class="text-gray-600 text-sm mb-3">
+                        Early identification of risk factors allows for proactive intervention through targeted nutrition, lifestyle modifications, and precise supplementation before disease develops.
+                    </p>
+                    <div class="text-sm text-gray-600">
+                        <strong>Your biological age (47.3)</strong> vs chronological age (47) indicates opportunities for optimization through the personalized protocols Dr. Player will provide.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Important Notice -->
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 mb-6">
+            <div class="flex items-start">
+                <i class="fas fa-exclamation-triangle text-yellow-600 text-xl mr-3 mt-1"></i>
+                <div>
+                    <h3 class="font-semibold text-yellow-800 mb-2">Important Notice</h3>
+                    <p class="text-yellow-700 text-sm">
+                        This assessment is for educational purposes and must be interpreted by your qualified functional medicine practitioner. 
+                        Do not make health decisions based solely on this report. Always consult with Dr. Player before making changes to 
+                        medications, supplements, or treatment protocols.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="bg-white rounded-lg shadow-sm p-6 text-center">
+            <h3 class="font-semibold text-gray-800 mb-2">Questions About Your Results?</h3>
+            <p class="text-gray-600 mb-4">Contact Dr. Graham Player, Ph.D for detailed interpretation and personalized protocols</p>
+            
+            <div class="space-y-2 text-sm text-gray-600">
+                <div>📧 Contact your practitioner for detailed interpretation</div>
+                <div>🔄 Next comprehensive assessment recommended: February 2026</div>
+                <div>📊 Progress tracking available through follow-up assessments</div>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <p class="text-xs text-gray-500">
+                    Report Generated: August 30, 2025 | Longenix Health Assessment Platform<br>
+                    Assessment ID: JT-2025-001 | Dr. Graham Player, Ph.D — Licensed TCM Practitioner
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Print functionality with better formatting
+        window.addEventListener('beforeprint', function() {
+            document.body.classList.add('printing');
+        });
+        
+        window.addEventListener('afterprint', function() {
+            document.body.classList.remove('printing');
+        });
+    </script>
+</body>
+</html>

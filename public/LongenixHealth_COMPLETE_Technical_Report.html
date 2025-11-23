@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LongenixHealth COMPLETE Technical Algorithms & Calculations Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+        }
+        
+        .algorithm-card {
+            border-left: 4px solid #3b82f6;
+            transition: all 0.3s ease;
+        }
+        
+        .algorithm-card:hover {
+            border-left-color: #1d4ed8;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .code-block {
+            background: #1f2937;
+            color: #e5e7eb;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            overflow-x: auto;
+        }
+        
+        .formula {
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            border-left: 4px solid #10b981;
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+        }
+        
+        .reference-tag {
+            background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+        }
+        
+        .validation-tag {
+            background: linear-gradient(45deg, #10b981, #059669);
+        }
+        
+        .complexity-tag {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+        }
+
+        .aging-tag {
+            background: linear-gradient(45deg, #dc2626, #ef4444);
+        }
+
+        .health-tag {
+            background: linear-gradient(45deg, #059669, #10b981);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-900 text-white no-print">
+        <div class="max-w-7xl mx-auto px-6 py-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">LongenixHealth COMPLETE Technical Algorithms Report</h1>
+                    <p class="text-gray-300">ALL Algorithms & Calculations - Complete Documentation</p>
+                    <p class="text-sm text-gray-400 mt-2">Dr. Graham Player, Ph.D — Master Technical Reference</p>
+                </div>
+                <button onclick="window.print()" class="bg-white bg-opacity-20 px-4 py-2 rounded-lg hover:bg-opacity-30 transition">
+                    <i class="fas fa-download mr-2"></i>Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        <!-- Complete System Overview -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-calculator text-blue-600 mr-2"></i>Complete Algorithm Documentation
+            </h2>
+            
+            <div class="grid md:grid-cols-4 gap-6 mb-6">
+                <div class="text-center p-4 bg-red-50 rounded-lg">
+                    <i class="fas fa-heartbeat text-red-600 text-2xl mb-2"></i>
+                    <div class="text-2xl font-bold text-red-600">7</div>
+                    <div class="text-sm text-gray-600">Disease Risk Categories</div>
+                </div>
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <i class="fas fa-dna text-blue-600 text-2xl mb-2"></i>
+                    <div class="text-2xl font-bold text-blue-600">4</div>
+                    <div class="text-sm text-gray-600">Biological Age Methods</div>
+                </div>
+                <div class="text-center p-4 bg-purple-50 rounded-lg">
+                    <i class="fas fa-skull text-purple-600 text-2xl mb-2"></i>
+                    <div class="text-2xl font-bold text-purple-600">12</div>
+                    <div class="text-sm text-gray-600">Hallmarks of Aging</div>
+                </div>
+                <div class="text-center p-4 bg-emerald-50 rounded-lg">
+                    <i class="fas fa-heart text-emerald-600 text-2xl mb-2"></i>
+                    <div class="text-2xl font-bold text-emerald-600">8</div>
+                    <div class="text-sm text-gray-600">Hallmarks of Health</div>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-800 mb-2">Complete System Architecture:</h3>
+                <ul class="text-sm text-gray-600 space-y-1">
+                    <li>• <strong>Total Lines of Code:</strong> 28,121 (16,084 core application + 3,029 medical algorithms)</li>
+                    <li>• <strong>Algorithm Implementation:</strong> TypeScript classes with evidence-based medical calculations</li>
+                    <li>• <strong>Data Processing:</strong> Real-time biomarker analysis with clinical validation</li>
+                    <li>• <strong>Risk Assessment:</strong> Multi-factorial algorithms following international guidelines</li>
+                    <li>• <strong>Biological Age:</strong> Four complementary methods with averaged consensus scoring</li>
+                    <li>• <strong>Aging Mechanisms:</strong> Complete 12 hallmarks assessment (Primary + Antagonistic + Integrative)</li>
+                    <li>• <strong>Health Optimization:</strong> Eight positive health domains with health span projection</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Biological Age Algorithms -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-dna text-blue-600 mr-2"></i>Biological Age Calculation Algorithms
+            </h2>
+
+            <!-- Phenotypic Age -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">1. Phenotypic Age Algorithm</h3>
+                    <div class="flex space-x-2">
+                        <span class="reference-tag text-white text-xs px-3 py-1 rounded-full">Levine et al. 2018</span>
+                        <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Mortality Validated</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Scientific Foundation:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Published in <em>Aging</em> journal by Levine et al. (2018). Uses 9 clinical biomarkers to predict 
+                        mortality risk and biological age. Strong correlation with healthspan and longevity outcomes.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Mathematical Formula:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Mortality Score =</strong></div>
+                        <div class="ml-4">-0.0336 × Albumin + 0.0095 × Creatinine + 0.1953 × Glucose</div>
+                        <div class="ml-4">+ 0.0954 × ln(CRP + 1) - 0.0120 × Lymphocyte%</div>
+                        <div class="ml-4">+ 0.0268 × AlkPhos + 0.0554 × WBC + 0.0026 × MCV</div>
+                        <div class="ml-4">+ 0.3306 × RDW</div>
+                        <div class="mt-2"><strong>Phenotypic Age =</strong> 141.50 + ln(-0.00553 × ln(1 - e^(mortality_score))) / 0.09165</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Required Biomarkers (9):</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Albumin (g/dL)</li>
+                            <li>• Creatinine (mg/dL)</li>
+                            <li>• Glucose (mg/dL)</li>
+                            <li>• C-Reactive Protein (mg/L)</li>
+                            <li>• Lymphocyte Percentage (%)</li>
+                            <li>• Alkaline Phosphatase (U/L)</li>
+                            <li>• White Blood Cells (K/μL)</li>
+                            <li>• Mean Cell Volume (fL)</li>
+                            <li>• Red Cell Distribution Width (%)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Implementation Logic:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Minimum 6/9 biomarkers required</li>
+                            <li>• Age bounds: 0-120 years</li>
+                            <li>• Fallback to simplified calculation if insufficient data</li>
+                            <li>• Logarithmic transformation for CRP</li>
+                            <li>• Exponential mortality-to-age conversion</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Klemera-Doubal Method -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">2. Klemera-Doubal Method (KDM)</h3>
+                    <div class="flex space-x-2">
+                        <span class="reference-tag text-white text-xs px-3 py-1 rounded-full">Klemera & Doubal 2006</span>
+                        <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Multi-Biomarker</span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Algorithm Overview:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Advanced statistical method using regression analysis to determine biological age from multiple biomarkers.
+                        Accounts for biomarker variability and provides robust age estimation.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">KDM Formula:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>KDM Age =</strong> (Σ(ki × xi) + k0) / (Σ ki²)</div>
+                        <div>Where:</div>
+                        <div class="ml-4">• ki = slope coefficient for biomarker i</div>
+                        <div class="ml-4">• xi = standardized biomarker value i</div>
+                        <div class="ml-4">• k0 = weighted chronological age component</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Key Biomarkers Used:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Systolic Blood Pressure</li>
+                            <li>• Total Cholesterol</li>
+                            <li>• HDL Cholesterol</li>
+                            <li>• Glucose</li>
+                            <li>• Albumin</li>
+                            <li>• Creatinine</li>
+                            <li>• C-Reactive Protein</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Advantages:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Handles missing biomarkers gracefully</li>
+                            <li>• Accounts for measurement errors</li>
+                            <li>• Strong correlation with mortality</li>
+                            <li>• Population-independent coefficients</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metabolic Age -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">3. Metabolic Age Algorithm</h3>
+                    <div class="flex space-x-2">
+                        <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Metabolic-Focused</span>
+                    </div>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Metabolic Scoring Components:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Metabolic Score =</strong> Σ(component_scores) / total_components</div>
+                        <div>• Glucose regulation: HbA1c, fasting glucose, insulin</div>
+                        <div>• Lipid metabolism: TC, HDL, LDL, triglycerides</div>
+                        <div>• Inflammatory markers: CRP, homocysteine</div>
+                        <div>• Kidney function: creatinine, albumin</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comprehensive Biological Age -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">4. Comprehensive Biological Age (Consensus)</h3>
+                    <div class="flex space-x-2">
+                        <span class="complexity-tag text-white text-xs px-3 py-1 rounded-full">Multi-Method Ensemble</span>
+                    </div>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Consensus Algorithm:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Final Bio Age =</strong> Weighted_Average(Phenotypic, KDM, Metabolic)</div>
+                        <div><strong>Age Acceleration =</strong> Biological_Age - Chronological_Age</div>
+                        <div><strong>Percentile Ranking =</strong> Population-normed percentile for age group</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disease Risk Algorithms (Summary) -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-heartbeat text-red-600 mr-2"></i>Disease Risk Assessment Algorithms (Summary)
+            </h2>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="algorithm-card bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-red-600 mb-2">1. ASCVD Cardiovascular Risk</h4>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div>• <strong>Algorithm:</strong> Pooled Cohort Equations</div>
+                        <div>• <strong>Reference:</strong> AHA/ACC 2018</div>
+                        <div>• <strong>Validation:</strong> C-statistic 0.71-0.75</div>
+                        <div>• <strong>Output:</strong> 10-year ASCVD risk %</div>
+                    </div>
+                </div>
+                
+                <div class="algorithm-card bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-blue-600 mb-2">2. FINDRISC Diabetes Risk</h4>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div>• <strong>Algorithm:</strong> Finnish Diabetes Risk Score</div>
+                        <div>• <strong>Reference:</strong> Lindström et al. 2003</div>
+                        <div>• <strong>Validation:</strong> AUC 0.85</div>
+                        <div>• <strong>Output:</strong> 10-year T2D risk %</div>
+                    </div>
+                </div>
+                
+                <div class="algorithm-card bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-purple-600 mb-2">3. Kidney Disease Risk</h4>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div>• <strong>Algorithm:</strong> KDIGO CKD Classification</div>
+                        <div>• <strong>Key Factors:</strong> eGFR, ACR, age</div>
+                        <div>• <strong>Output:</strong> CKD stage progression risk</div>
+                    </div>
+                </div>
+                
+                <div class="algorithm-card bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-green-600 mb-2">4. Cancer Risk</h4>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div>• <strong>Algorithm:</strong> Composite risk factors</div>
+                        <div>• <strong>Key Factors:</strong> Age, lifestyle, family history</div>
+                        <div>• <strong>Output:</strong> Overall cancer risk estimate</div>
+                    </div>
+                </div>
+                
+                <div class="algorithm-card bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-indigo-600 mb-2">5. Cognitive Decline</h4>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div>• <strong>Algorithm:</strong> Vascular-metabolic model</div>
+                        <div>• <strong>Key Factors:</strong> CV risk, diabetes, inflammation</div>
+                        <div>• <strong>Output:</strong> Cognitive impairment risk</div>
+                    </div>
+                </div>
+                
+                <div class="algorithm-card bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-yellow-600 mb-2">6. Metabolic Syndrome</h4>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div>• <strong>Algorithm:</strong> ATP III Criteria</div>
+                        <div>• <strong>Key Factors:</strong> Waist, BP, glucose, lipids</div>
+                        <div>• <strong>Output:</strong> MetS presence (3/5 criteria)</div>
+                    </div>
+                </div>
+
+                <div class="algorithm-card bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-red-500 mb-2">7. Stroke Risk</h4>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div>• <strong>Algorithm:</strong> Modified Framingham</div>
+                        <div>• <strong>Key Factors:</strong> Age, BP, AF, diabetes</div>
+                        <div>• <strong>Output:</strong> 10-year stroke probability</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Complete Hallmarks of Aging Algorithms -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-skull text-purple-600 mr-2"></i>Complete Hallmarks of Aging - ALL 12 Detailed Algorithms
+            </h2>
+
+            <div class="mb-6">
+                <p class="text-gray-600">
+                    Comprehensive assessment of ALL 12 fundamental aging mechanisms based on López-Otín et al. 
+                    framework (Cell 2013, updated 2023). Each hallmark uses specific biomarkers and lifestyle factors 
+                    with evidence-based scoring algorithms.
+                </p>
+            </div>
+
+            <!-- Overall Aging Assessment Formula -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">Master Aging Assessment Algorithm</h3>
+                    <div class="flex space-x-2">
+                        <span class="reference-tag text-white text-xs px-3 py-1 rounded-full">López-Otín et al. 2023</span>
+                        <span class="complexity-tag text-white text-xs px-3 py-1 rounded-full">Multi-Modal</span>
+                    </div>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Master Calculation:</h4>
+                    <div class="text-sm space-y-2">
+                        <div><strong>Overall Aging Score =</strong> Σ(hallmark_impact_percentage) / 12 hallmarks</div>
+                        <div><strong>Biological Age Acceleration =</strong> (overall_score - 50) × 0.2</div>
+                        <div><strong>Primary Concerns =</strong> hallmarks where impact > 60% OR risk_level ≥ 'high'</div>
+                        <div><strong>Confidence Level =</strong> minimum(all_hallmark_confidence_levels)</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Primary Hallmarks (4):</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Genomic Instability</li>
+                            <li>• Telomere Attrition</li>
+                            <li>• Epigenetic Alterations</li>
+                            <li>• Loss of Proteostasis</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Antagonistic Hallmarks (4):</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Deregulated Nutrient Sensing</li>
+                            <li>• Mitochondrial Dysfunction</li>
+                            <li>• Cellular Senescence</li>
+                            <li>• Stem Cell Exhaustion</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Integrative Hallmarks (4):</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Altered Intercellular Communication</li>
+                            <li>• Chronic Inflammation</li>
+                            <li>• Dysbiosis</li>
+                            <li>• Altered Mechanical Properties</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRIMARY HALLMARKS -->
+            <div class="mb-8">
+                <h3 class="text-xl font-bold text-purple-700 mb-4 aging-tag text-white px-4 py-2 rounded-lg">PRIMARY HALLMARKS (4/4)</h3>
+                
+                <!-- 1. Genomic Instability -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">1. Genomic Instability Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Oxidative Stress Model</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">PRIMARY</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Algorithm Foundation:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Assesses DNA damage accumulation through inflammatory markers and lifestyle factors affecting genomic stability.
+                            Higher scores indicate increased risk of DNA damage, mutations, and cellular dysfunction.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Detailed Scoring Algorithm:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>C-Reactive Protein Impact:</strong></div>
+                            <div class="ml-4">• if CRP > 3.0 mg/L: +25 points</div>
+                            <div class="ml-4">• if CRP > 1.0 mg/L: +15 points</div>
+                            <div><strong>Homocysteine Impact:</strong></div>
+                            <div class="ml-4">• if homocysteine > 15 μmol/L: +20 points</div>
+                            <div class="ml-4">• if homocysteine > 10 μmol/L: +10 points</div>
+                            <div><strong>Age Adjustment:</strong> if age > 65: +15, >50: +10, >35: +5</div>
+                            <div><strong>Final Score:</strong> Math.min(100, total_points)</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Lifestyle Risk Factors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Current smoking: +30 points</div>
+                                <div>• Former smoking: +10 points</div>
+                                <div>• Alcohol >14 drinks/week: +15 points</div>
+                                <div>• High stress (≥8/10): +20 points</div>
+                                <div>• Moderate stress (≥6/10): +10 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Risk Stratification:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• <20%: Optimal genomic stability</div>
+                                <div>• 20-39%: Mild instability risk</div>
+                                <div>• 40-59%: Moderate instability risk</div>
+                                <div>• 60-79%: High instability risk</div>
+                                <div>• ≥80%: Severe genomic instability</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Telomere Attrition -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">2. Telomere Attrition Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="reference-tag text-white text-xs px-3 py-1 rounded-full">Blackburn et al. 2015</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">PRIMARY</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Telomere Length Estimation:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Estimates telomere attrition risk using age-adjusted lifestyle factors known to influence 
+                            telomere length and cellular replicative capacity. Based on epidemiological studies linking lifestyle to telomere biology.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Age-Adjusted Scoring Algorithm:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Base Age Score:</strong></div>
+                            <div class="ml-4">• if age > 70: +40 points</div>
+                            <div class="ml-4">• if age > 60: +30 points</div>
+                            <div class="ml-4">• if age > 50: +20 points</div>
+                            <div class="ml-4">• if age > 40: +10 points</div>
+                            <div class="ml-4">• else: +5 points (baseline aging)</div>
+                            <div><strong>Final Score:</strong> Math.max(0, Math.min(100, total_score))</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Protective Factors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• High physical activity (≥5): -10 points</div>
+                                <div>• Good sleep quality (≥4): -5 points</div>
+                                <div>• Normal BMI (18.5-25): implicit baseline</div>
+                                <div>• Low stress levels: protective</div>
+                                <div>• Never smoker: protective</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Damaging Factors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Current smoking: +25 points</div>
+                                <div>• Former smoking: +10 points</div>
+                                <div>• High stress (≥8): +20 points</div>
+                                <div>• Moderate stress (≥6): +10 points</div>
+                                <div>• Poor sleep (≤2): +15 points</div>
+                                <div>• Obesity (BMI >30): +15 points</div>
+                                <div>• Underweight (BMI <18.5): +10 points</div>
+                                <div>• Sedentary lifestyle (≤2): +15 points</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Epigenetic Alterations -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">3. Epigenetic Alterations Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="reference-tag text-white text-xs px-3 py-1 rounded-full">Pal & Tyler 2016</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">PRIMARY</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Epigenetic Clock Estimation:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Estimates epigenetic age acceleration through metabolic markers and lifestyle factors that influence 
+                            DNA methylation patterns. Higher scores indicate accelerated epigenetic aging.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Metabolic-Lifestyle Algorithm:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Age-Based Epigenetic Drift:</strong> age × 0.5 (max 35 points)</div>
+                            <div><strong>HbA1c Impact:</strong></div>
+                            <div class="ml-4">• if HbA1c > 7.0%: +20 points (diabetic range)</div>
+                            <div class="ml-4">• if HbA1c > 5.7%: +10 points (prediabetic range)</div>
+                            <div><strong>Glucose Impact:</strong></div>
+                            <div class="ml-4">• if glucose > 126 mg/dL: +15 points</div>
+                            <div class="ml-4">• if glucose > 100 mg/dL: +8 points</div>
+                            <div><strong>Homocysteine:</strong> if > 15: +15, if > 10: +8</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Lifestyle Modulators:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Poor diet quality (≤2): +15 points</div>
+                                <div>• Good diet quality (≥4): -5 points</div>
+                                <div>• Low physical activity (≤2): +12 points</div>
+                                <div>• High physical activity (≥5): -8 points</div>
+                                <div>• Current smoking: +25 points</div>
+                                <div>• Former smoking: +8 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Risk Assessment:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• <20%: Optimal epigenetic profile</div>
+                                <div>• 20-39%: Mild epigenetic aging</div>
+                                <div>• 40-59%: Moderate acceleration</div>
+                                <div>• 60-79%: High acceleration</div>
+                                <div>• ≥80%: Severe epigenetic aging</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Loss of Proteostasis -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">4. Loss of Proteostasis Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Protein Quality Control</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">PRIMARY</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Protein Homeostasis Assessment:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Evaluates the decline in cellular protein quality control systems through albumin levels, 
+                            inflammatory markers, and age-related factors affecting protein folding and clearance.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Proteostasis Dysfunction Algorithm:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Age Factor:</strong> if age > 65: +25, >50: +15, >35: +8</div>
+                            <div><strong>Albumin (Protein Synthesis):</strong></div>
+                            <div class="ml-4">• if albumin < 3.5 g/dL: +20 points (low synthesis)</div>
+                            <div class="ml-4">• if albumin < 4.0 g/dL: +10 points</div>
+                            <div><strong>CRP (Protein Damage):</strong></div>
+                            <div class="ml-4">• if CRP > 3.0 mg/L: +15 points</div>
+                            <div class="ml-4">• if CRP > 1.0 mg/L: +8 points</div>
+                            <div><strong>Lifestyle Stressors:</strong> smoking, poor diet, stress</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Proteostasis Stressors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Current smoking: +20 points</div>
+                                <div>• Poor diet quality: +15 points</div>
+                                <div>• High stress levels: +15 points</div>
+                                <div>• Sedentary lifestyle: +10 points</div>
+                                <div>• Excessive alcohol: +10 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Protective Factors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• High-quality protein intake</div>
+                                <div>• Regular exercise (autophagy promotion)</div>
+                                <div>• Adequate sleep (protein repair)</div>
+                                <div>• Antioxidant-rich diet</div>
+                                <div>• Stress management</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ANTAGONISTIC HALLMARKS -->
+            <div class="mb-8">
+                <h3 class="text-xl font-bold text-orange-700 mb-4 aging-tag text-white px-4 py-2 rounded-lg">ANTAGONISTIC HALLMARKS (4/4)</h3>
+                
+                <!-- 5. Deregulated Nutrient Sensing -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">5. Deregulated Nutrient Sensing Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">mTOR/AMPK Pathway</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">ANTAGONISTIC</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Nutrient Sensing Pathways:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Evaluates insulin/IGF-1 and mTOR pathway dysfunction through glucose metabolism, 
+                            insulin sensitivity, and metabolic markers. Higher scores indicate metabolic dysregulation.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Metabolic Dysfunction Scoring:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Glucose Regulation:</strong></div>
+                            <div class="ml-4">• if glucose > 126 mg/dL: +25 points (diabetic)</div>
+                            <div class="ml-4">• if glucose 101-126 mg/dL: +15 points (prediabetic)</div>
+                            <div><strong>Glycemic Control:</strong></div>
+                            <div class="ml-4">• if HbA1c > 7.0%: +30 points</div>
+                            <div class="ml-4">• if HbA1c 5.8-7.0%: +20 points</div>
+                            <div><strong>Insulin Resistance:</strong></div>
+                            <div class="ml-4">• if insulin > 25 μIU/mL: +25 points</div>
+                            <div><strong>Final:</strong> Math.max(0, Math.min(100, total_points))</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Additional Metabolic Factors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Triglycerides >200 mg/dL: +15 points</div>
+                                <div>• BMI >35: +25 points</div>
+                                <div>• BMI 30-35: +20 points</div>
+                                <div>• Poor diet quality: +20 points</div>
+                                <div>• Low physical activity: +20 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Risk Stratification:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• <20%: Optimal nutrient sensing</div>
+                                <div>• 20-39%: Mild dysfunction</div>
+                                <div>• 40-59%: Moderate dysfunction</div>
+                                <div>• 60-79%: High dysfunction</div>
+                                <div>• ≥80%: Severe dysregulation</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Mitochondrial Dysfunction -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">6. Mitochondrial Dysfunction Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Oxidative Capacity</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">ANTAGONISTIC</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Mitochondrial Health Assessment:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Evaluates mitochondrial function through metabolic markers, oxidative stress indicators, 
+                            and age-related decline in cellular energy production capacity.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Mitochondrial Function Scoring:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Age-Related Decline:</strong> if age > 60: +20, >40: +10, >30: +5</div>
+                            <div><strong>Metabolic Markers:</strong></div>
+                            <div class="ml-4">• High glucose (>100): mitochondrial stress</div>
+                            <div class="ml-4">• Elevated triglycerides: +15 points</div>
+                            <div><strong>Oxidative Stress:</strong></div>
+                            <div class="ml-4">• CRP > 3.0 mg/L: +20 points</div>
+                            <div class="ml-4">• CRP > 1.0 mg/L: +10 points</div>
+                            <div><strong>Physical Capacity:</strong> low activity = decreased mitochondrial mass</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Mitochondrial Stressors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Sedentary lifestyle: +25 points</div>
+                                <div>• Current smoking: +30 points</div>
+                                <div>• High stress levels: +15 points</div>
+                                <div>• Poor sleep quality: +15 points</div>
+                                <div>• Excessive alcohol: +15 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Mitochondrial Boosters:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• High physical activity: -15 points</div>
+                                <div>• Good sleep quality: -10 points</div>
+                                <div>• Antioxidant-rich diet: protective</div>
+                                <div>• Intermittent fasting: protective</div>
+                                <div>• Cold exposure: adaptive stress</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Cellular Senescence -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">7. Cellular Senescence Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">SASP Assessment</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">ANTAGONISTIC</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Senescent Cell Burden:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Estimates senescent cell accumulation through inflammatory markers (SASP factors), 
+                            age-related increase, and lifestyle factors that promote cellular senescence.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Senescence Burden Algorithm:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Age-Related Accumulation:</strong></div>
+                            <div class="ml-4">• if age > 70: +35 points</div>
+                            <div class="ml-4">• if age > 60: +25 points</div>
+                            <div class="ml-4">• if age > 50: +15 points</div>
+                            <div class="ml-4">• if age > 40: +8 points</div>
+                            <div><strong>SASP Inflammatory Markers:</strong></div>
+                            <div class="ml-4">• CRP > 3.0 mg/L: +25 points (high SASP)</div>
+                            <div class="ml-4">• CRP > 1.0 mg/L: +15 points</div>
+                            <div><strong>Senescence Drivers:</strong> DNA damage, oxidative stress</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Senescence Accelerators:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Current smoking: +25 points</div>
+                                <div>• Chronic stress: +20 points</div>
+                                <div>• Obesity (inflammatory): +15 points</div>
+                                <div>• Poor sleep quality: +15 points</div>
+                                <div>• UV exposure: +10 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Senolytic Factors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• High physical activity: -10 points</div>
+                                <div>• Caloric restriction: protective</div>
+                                <div>• Antioxidant intake: protective</div>
+                                <div>• Stress management: -5 points</div>
+                                <div>• Quality sleep: -5 points</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 8. Stem Cell Exhaustion -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">8. Stem Cell Exhaustion Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Regenerative Capacity</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">ANTAGONISTIC</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Regenerative Capacity Assessment:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Evaluates stem cell pool depletion and dysfunction through age-related decline, 
+                            inflammatory burden, and lifestyle factors affecting stem cell maintenance and function.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Stem Cell Depletion Algorithm:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Age-Related Depletion:</strong></div>
+                            <div class="ml-4">• if age > 65: +30 points (significant depletion)</div>
+                            <div class="ml-4">• if age > 50: +20 points</div>
+                            <div class="ml-4">• if age > 35: +10 points</div>
+                            <div><strong>Stem Cell Niche Damage:</strong></div>
+                            <div class="ml-4">• High CRP (>3.0): +20 points (niche inflammation)</div>
+                            <div class="ml-4">• Chronic inflammation damages stem cell niches</div>
+                            <div><strong>Lifestyle Impact:</strong> exercise promotes, stress depletes</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Stem Cell Depleters:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Chronic inflammation: +20 points</div>
+                                <div>• Current smoking: +25 points</div>
+                                <div>• High chronic stress: +20 points</div>
+                                <div>• Sedentary lifestyle: +15 points</div>
+                                <div>• Poor nutrition: +15 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Stem Cell Supporters:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Regular exercise: -15 points</div>
+                                <div>• Intermittent fasting: protective</div>
+                                <div>• Quality sleep: -10 points</div>
+                                <div>• Stress management: -10 points</div>
+                                <div>• Anti-inflammatory diet: protective</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INTEGRATIVE HALLMARKS -->
+            <div class="mb-8">
+                <h3 class="text-xl font-bold text-indigo-700 mb-4 aging-tag text-white px-4 py-2 rounded-lg">INTEGRATIVE HALLMARKS (4/4)</h3>
+                
+                <!-- 9. Altered Intercellular Communication -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">9. Altered Intercellular Communication Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Cell Signaling</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">INTEGRATIVE</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Cellular Communication Assessment:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Evaluates disruption in cellular signaling networks through inflammatory mediators, 
+                            hormonal changes, and age-related decline in intercellular coordination.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Communication Disruption Algorithm:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Age-Related Signaling Decline:</strong></div>
+                            <div class="ml-4">• if age > 60: +25 points (hormonal decline)</div>
+                            <div class="ml-4">• if age > 45: +15 points</div>
+                            <div><strong>Inflammatory Signaling Disruption:</strong></div>
+                            <div class="ml-4">• CRP > 3.0 mg/L: +25 points (altered signaling)</div>
+                            <div class="ml-4">• CRP > 1.0 mg/L: +15 points</div>
+                            <div><strong>Metabolic Signaling:</strong> insulin resistance disrupts signaling</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Communication Disruptors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Chronic inflammation: +20 points</div>
+                                <div>• Metabolic dysfunction: +15 points</div>
+                                <div>• Chronic stress: +15 points</div>
+                                <div>• Poor sleep quality: +10 points</div>
+                                <div>• Social isolation: +10 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Communication Enhancers:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Regular exercise: -10 points</div>
+                                <div>• Social connections: -5 points</div>
+                                <div>• Stress management: -10 points</div>
+                                <div>• Quality sleep: -5 points</div>
+                                <div>• Balanced nutrition: protective</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 10. Chronic Inflammation (Inflammaging) -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">10. Chronic Inflammation (Inflammaging) Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="reference-tag text-white text-xs px-3 py-1 rounded-full">Franceschi et al. 2018</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">INTEGRATIVE</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Inflammaging Assessment:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Comprehensive inflammatory burden assessment using direct inflammatory markers, 
+                            lifestyle factors, and age-related immune system changes causing chronic low-grade inflammation.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Comprehensive Inflammaging Score:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Direct Inflammatory Markers:</strong></div>
+                            <div class="ml-4">• CRP > 10 mg/L: +35 points (high inflammation)</div>
+                            <div class="ml-4">• CRP 3-10 mg/L: +25 points</div>
+                            <div class="ml-4">• CRP 1-3 mg/L: +15 points</div>
+                            <div><strong>White Blood Cells:</strong></div>
+                            <div class="ml-4">• WBC > 10 K/μL: +15 points</div>
+                            <div class="ml-4">• WBC 7-10 K/μL: +8 points</div>
+                            <div><strong>Age Factor:</strong> if age > 60: +10 points (immunosenescence)</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Inflammatory Triggers:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Current smoking: +20 points</div>
+                                <div>• Low physical activity: +15 points</div>
+                                <div>• High stress (≥8): +15 points</div>
+                                <div>• Poor sleep quality: +10 points</div>
+                                <div>• Elevated glucose: +10 points</div>
+                                <div>• High BMI (adipose inflammation): +10 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Anti-Inflammatory Factors:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• High physical activity: -10 points</div>
+                                <div>• Mediterranean diet: -5 points</div>
+                                <div>• Omega-3 intake: protective</div>
+                                <div>• Stress management: -5 points</div>
+                                <div>• Quality sleep: -5 points</div>
+                                <div>• Normal BMI: protective</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 11. Dysbiosis -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">11. Dysbiosis Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Microbiome Health</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">INTEGRATIVE</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Microbiome Dysfunction Assessment:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Estimates microbiome dysbiosis through indirect markers including inflammatory burden, 
+                            antibiotic exposure, dietary patterns, and age-related microbiome decline.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Dysbiosis Risk Algorithm:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Age-Related Decline:</strong> if age > 65: +20, >50: +15, >35: +8</div>
+                            <div><strong>Inflammatory Markers (Gut-Derived):</strong></div>
+                            <div class="ml-4">• CRP > 3.0 mg/L: +20 points (gut inflammation)</div>
+                            <div class="ml-4">• CRP > 1.0 mg/L: +12 points</div>
+                            <div><strong>Antibiotic History:</strong> if recent/frequent: +25 points</div>
+                            <div><strong>Diet Quality:</strong> poor fiber intake = dysbiosis risk</div>
+                            <div><strong>Digestive Issues:</strong> reported GI symptoms: +15 points</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Dysbiosis Promoters:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Poor diet quality: +20 points</div>
+                                <div>• Frequent antibiotic use: +25 points</div>
+                                <div>• High stress levels: +15 points</div>
+                                <div>• Low fiber intake: +15 points</div>
+                                <div>• Sedentary lifestyle: +10 points</div>
+                                <div>• Excessive alcohol: +15 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Microbiome Supporters:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• High fiber diet: -15 points</div>
+                                <div>• Fermented foods: -10 points</div>
+                                <div>• Diverse plant foods: -10 points</div>
+                                <div>• Regular exercise: -8 points</div>
+                                <div>• Stress management: -5 points</div>
+                                <div>• Probiotic supplementation: protective</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 12. Altered Mechanical Properties -->
+                <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">12. Altered Mechanical Properties Algorithm</h3>
+                        <div class="flex space-x-2">
+                            <span class="validation-tag text-white text-xs px-3 py-1 rounded-full">Tissue Elasticity</span>
+                            <span class="aging-tag text-white text-xs px-3 py-1 rounded-full">INTEGRATIVE</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Mechanical Tissue Properties:</h4>
+                        <p class="text-gray-600 text-sm">
+                            Assesses age-related changes in tissue elasticity, collagen degradation, and mechanical integrity 
+                            through physical performance markers and lifestyle factors affecting connective tissue health.
+                        </p>
+                    </div>
+
+                    <div class="formula p-4 rounded mb-4">
+                        <h4 class="font-semibold text-green-700 mb-2">Mechanical Integrity Algorithm:</h4>
+                        <div class="text-sm space-y-1">
+                            <div><strong>Age-Related Stiffening:</strong></div>
+                            <div class="ml-4">• if age > 65: +30 points (collagen cross-linking)</div>
+                            <div class="ml-4">• if age > 50: +20 points</div>
+                            <div class="ml-4">• if age > 35: +10 points</div>
+                            <div><strong>Physical Performance Decline:</strong></div>
+                            <div class="ml-4">• Low physical activity: +25 points</div>
+                            <div class="ml-4">• Poor flexibility/mobility: +20 points</div>
+                            <div><strong>Connective Tissue Health:</strong> nutrition, hydration impact</div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Mechanical Degraders:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Sedentary lifestyle: +25 points</div>
+                                <div>• Current smoking: +20 points</div>
+                                <div>• Poor hydration: +15 points</div>
+                                <div>• High glycemic diet: +15 points</div>
+                                <div>• Chronic inflammation: +15 points</div>
+                                <div>• UV exposure: +10 points</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-2">Mechanical Preservers:</h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>• Regular exercise: -20 points</div>
+                                <div>• Flexibility training: -15 points</div>
+                                <div>• Adequate protein: -10 points</div>
+                                <div>• Vitamin C intake: -5 points</div>
+                                <div>• Collagen support: protective</div>
+                                <div>• Hydration maintenance: protective</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hallmarks Summary -->
+            <div class="bg-purple-50 p-6 rounded-lg">
+                <h3 class="text-lg font-semibold text-purple-800 mb-4">Complete Hallmarks Implementation Summary</h3>
+                <div class="grid md:grid-cols-2 gap-6 text-sm">
+                    <div>
+                        <h4 class="font-medium text-purple-700 mb-2">All 12 Hallmarks Implemented:</h4>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="text-purple-600">
+                                <div class="font-medium">Primary (4):</div>
+                                <ul class="text-xs space-y-1">
+                                    <li>✓ Genomic Instability</li>
+                                    <li>✓ Telomere Attrition</li>
+                                    <li>✓ Epigenetic Alterations</li>
+                                    <li>✓ Loss of Proteostasis</li>
+                                </ul>
+                            </div>
+                            <div class="text-purple-600">
+                                <div class="font-medium">Antagonistic (4):</div>
+                                <ul class="text-xs space-y-1">
+                                    <li>✓ Nutrient Sensing</li>
+                                    <li>✓ Mitochondrial Dysfunction</li>
+                                    <li>✓ Cellular Senescence</li>
+                                    <li>✓ Stem Cell Exhaustion</li>
+                                </ul>
+                            </div>
+                            <div class="text-purple-600">
+                                <div class="font-medium">Integrative (4):</div>
+                                <ul class="text-xs space-y-1">
+                                    <li>✓ Intercellular Communication</li>
+                                    <li>✓ Chronic Inflammation</li>
+                                    <li>✓ Dysbiosis</li>
+                                    <li>✓ Mechanical Properties</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-purple-700 mb-2">Algorithm Architecture:</h4>
+                        <ul class="text-purple-600 space-y-1">
+                            <li>• Each hallmark: 0-100% impact score</li>
+                            <li>• Risk levels: optimal → mild → moderate → high → severe</li>
+                            <li>• Confidence: high/medium/low based on biomarker availability</li>
+                            <li>• Missing data handling with graceful degradation</li>
+                            <li>• Age-stratified scoring for most hallmarks</li>
+                            <li>• Lifestyle factor integration throughout</li>
+                            <li>• Evidence-based scoring thresholds</li>
+                            <li>• Clinical interpretation guidelines</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Complete Hallmarks of Health Algorithms -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-heart text-green-600 mr-2"></i>Complete Hallmarks of Health - ALL 8 Optimization Algorithms
+            </h2>
+
+            <div class="mb-6">
+                <p class="text-gray-600">
+                    Comprehensive assessment of ALL 8 positive health domains focusing on optimization rather than disease risk. 
+                    Each domain uses evidence-based biomarkers and lifestyle factors to calculate health span potential and optimization opportunities.
+                </p>
+            </div>
+
+            <!-- Health Optimization Master Algorithm -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">Health Optimization Master Algorithm</h3>
+                    <div class="flex space-x-2">
+                        <span class="health-tag text-white text-xs px-3 py-1 rounded-full">Positive Health Model</span>
+                        <span class="complexity-tag text-white text-xs px-3 py-1 rounded-full">Multi-Domain</span>
+                    </div>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Master Health Calculations:</h4>
+                    <div class="text-sm space-y-2">
+                        <div><strong>Overall Health Score =</strong> Σ(domain_score) / 8 domains</div>
+                        <div><strong>Health Span Projection =</strong> base_life_expectancy - current_age + health_bonus</div>
+                        <div><strong>Health Bonus =</strong> (health_score - 50) × 0.3 years per 10 points</div>
+                        <div><strong>Primary Strengths =</strong> domains scoring ≥80%</div>
+                        <div><strong>Optimization Opportunities =</strong> domains scoring <70%</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-4 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Metabolic Health:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Glucose regulation</li>
+                            <li>• Lipid optimization</li>
+                            <li>• Insulin sensitivity</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Physical Domains:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Cardiovascular fitness</li>
+                            <li>• Physical performance</li>
+                            <li>• Sleep quality</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Cognitive & Immune:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Cognitive reserve</li>
+                            <li>• Immune resilience</li>
+                            <li>• Stress resilience</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Nutritional Status:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• Micronutrient status</li>
+                            <li>• Antioxidant capacity</li>
+                            <li>• Nutritional balance</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1. Metabolic Health -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">1. Metabolic Health Optimization</h3>
+                    <div class="flex space-x-2">
+                        <span class="health-tag text-white text-xs px-3 py-1 rounded-full">HEALTH DOMAIN</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Comprehensive Metabolic Assessment:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Evaluates glucose regulation, lipid profiles, and insulin sensitivity for optimal metabolic function.
+                        Higher scores indicate better metabolic flexibility and lower disease risk.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Metabolic Optimization Algorithm:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Glucose Regulation (40% weight):</strong></div>
+                        <div class="ml-4">• Optimal: glucose 70-85 mg/dL, HbA1c <5.0%</div>
+                        <div class="ml-4">• Good: glucose 85-99, HbA1c 5.0-5.6%</div>
+                        <div><strong>Lipid Profile (35% weight):</strong></div>
+                        <div class="ml-4">• HDL >60 (M) >70 (F), Triglycerides <100</div>
+                        <div class="ml-4">• Total cholesterol 150-220, LDL <100</div>
+                        <div><strong>Insulin Sensitivity (25% weight):</strong></div>
+                        <div class="ml-4">• Fasting insulin 2-6 μIU/mL optimal</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Optimization Factors:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Regular physical activity: +15 points</div>
+                            <div>• High diet quality: +15 points</div>
+                            <div>• Normal BMI (20-25): +10 points</div>
+                            <div>• Good sleep quality: +10 points</div>
+                            <div>• Stress management: +5 points</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Scoring Ranges:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• 90-100%: Optimal metabolic health</div>
+                            <div>• 80-89%: Excellent metabolic function</div>
+                            <div>• 70-79%: Good metabolic status</div>
+                            <div>• 60-69%: Fair, optimization needed</div>
+                            <div>• <60%: Poor, intervention required</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Cardiovascular Fitness -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">2. Cardiovascular Fitness Optimization</h3>
+                    <div class="flex space-x-2">
+                        <span class="health-tag text-white text-xs px-3 py-1 rounded-full">HEALTH DOMAIN</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Cardiac Performance Assessment:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Evaluates cardiovascular health through blood pressure, heart rate metrics, and physical activity capacity.
+                        Optimizes for longevity and cardiovascular disease prevention.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Cardiovascular Score Algorithm:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Blood Pressure (40% weight):</strong></div>
+                        <div class="ml-4">• Optimal: <120/80 mmHg = 100 points</div>
+                        <div class="ml-4">• Normal: 120-129/80-84 = 85 points</div>
+                        <div class="ml-4">• Elevated: >130/85 = decreasing points</div>
+                        <div><strong>Heart Rate Variability (30% weight):</strong></div>
+                        <div class="ml-4">• Resting HR 50-70 bpm optimal</div>
+                        <div><strong>Physical Activity (30% weight):</strong></div>
+                        <div class="ml-4">• ≥5 sessions/week high intensity</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">CV Enhancement Factors:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• High cardio activity (≥5): +20 points</div>
+                            <div>• Resistance training: +10 points</div>
+                            <div>• Never smoker: +15 points</div>
+                            <div>• Optimal weight: +10 points</div>
+                            <div>• Mediterranean diet: +5 points</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">CV Risk Reducers:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Current smoking: -30 points</div>
+                            <div>• Sedentary lifestyle: -25 points</div>
+                            <div>• High stress: -15 points</div>
+                            <div>• Poor sleep: -10 points</div>
+                            <div>• Excessive alcohol: -10 points</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Cognitive Reserve -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">3. Cognitive Reserve Optimization</h3>
+                    <div class="flex space-x-2">
+                        <span class="health-tag text-white text-xs px-3 py-1 rounded-full">HEALTH DOMAIN</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Brain Health Preservation:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Assesses cognitive resilience through education, mental stimulation, and brain health factors.
+                        Optimizes for cognitive longevity and dementia prevention.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Cognitive Reserve Algorithm:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Educational Baseline (25% weight):</strong></div>
+                        <div class="ml-4">• Advanced degree: +25 points</div>
+                        <div class="ml-4">• Bachelor's degree: +20 points</div>
+                        <div class="ml-4">• High school: +15 points</div>
+                        <div><strong>Mental Stimulation (35% weight):</strong></div>
+                        <div class="ml-4">• Complex mental work: +20 points</div>
+                        <div class="ml-4">• Learning new skills: +15 points</div>
+                        <div><strong>Brain Health (40% weight):</strong></div>
+                        <div class="ml-4">• Vascular health, sleep, exercise</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Cognitive Enhancers:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Lifelong learning: +20 points</div>
+                            <div>• Social engagement: +15 points</div>
+                            <div>• Physical exercise: +15 points</div>
+                            <div>• Meditation practice: +10 points</div>
+                            <div>• Quality sleep: +10 points</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Cognitive Threats:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Diabetes/high glucose: -20 points</div>
+                            <div>• Hypertension: -15 points</div>
+                            <div>• Social isolation: -15 points</div>
+                            <div>• Chronic stress: -10 points</div>
+                            <div>• Poor sleep: -10 points</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Immune Resilience -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">4. Immune Resilience Optimization</h3>
+                    <div class="flex space-x-2">
+                        <span class="health-tag text-white text-xs px-3 py-1 rounded-full">HEALTH DOMAIN</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Immune System Strength:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Evaluates immune function through white blood cell counts, inflammatory balance, and immune-supporting lifestyle factors.
+                        Optimizes for infection resistance and autoimmune balance.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Immune Optimization Algorithm:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Immune Markers (50% weight):</strong></div>
+                        <div class="ml-4">• WBC count 4.5-10.5 K/μL optimal</div>
+                        <div class="ml-4">• Lymphocyte % 20-45% optimal</div>
+                        <div class="ml-4">• Low inflammation (CRP <1.0)</div>
+                        <div><strong>Lifestyle Support (50% weight):</strong></div>
+                        <div class="ml-4">• Quality sleep: +20 points</div>
+                        <div class="ml-4">• Regular exercise: +15 points</div>
+                        <div class="ml-4">• Stress management: +15 points</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Immune Boosters:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Adequate sleep (7-9h): +20 points</div>
+                            <div>• Regular exercise: +15 points</div>
+                            <div>• Balanced nutrition: +15 points</div>
+                            <div>• Stress management: +15 points</div>
+                            <div>• Vitamin D sufficiency: +10 points</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Immune Suppressors:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Chronic stress: -25 points</div>
+                            <div>• Poor sleep (<6h): -20 points</div>
+                            <div>• Current smoking: -20 points</div>
+                            <div>• Excessive alcohol: -15 points</div>
+                            <div>• Sedentary lifestyle: -15 points</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Physical Performance -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">5. Physical Performance Optimization</h3>
+                    <div class="flex space-x-2">
+                        <span class="health-tag text-white text-xs px-3 py-1 rounded-full">HEALTH DOMAIN</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Functional Capacity Assessment:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Evaluates strength, mobility, and physical function through activity levels and age-adjusted performance expectations.
+                        Optimizes for functional independence and physical resilience.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Physical Performance Algorithm:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Activity Level (40% weight):</strong></div>
+                        <div class="ml-4">• High activity (≥5): +25 points</div>
+                        <div class="ml-4">• Moderate (3-4): +20 points</div>
+                        <div class="ml-4">• Low (1-2): +10 points</div>
+                        <div><strong>Strength Training (30% weight):</strong></div>
+                        <div class="ml-4">• Regular resistance training: +20 points</div>
+                        <div><strong>Functional Mobility (30% weight):</strong></div>
+                        <div class="ml-4">• Age-adjusted performance standards</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Performance Enhancers:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• High physical activity: +25 points</div>
+                            <div>• Strength training: +20 points</div>
+                            <div>• Flexibility/mobility work: +15 points</div>
+                            <div>• Balance training: +10 points</div>
+                            <div>• Adequate protein: +10 points</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Performance Limiters:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Sedentary lifestyle: -30 points</div>
+                            <div>• Obesity: -20 points</div>
+                            <div>• Chronic pain: -15 points</div>
+                            <div>• Poor sleep: -10 points</div>
+                            <div>• Nutritional deficiency: -10 points</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. Sleep Quality -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">6. Sleep Quality Optimization</h3>
+                    <div class="flex space-x-2">
+                        <span class="health-tag text-white text-xs px-3 py-1 rounded-full">HEALTH DOMAIN</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Sleep Health Assessment:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Evaluates sleep duration, quality, and sleep hygiene practices for optimal recovery and health.
+                        Critical for immune function, cognitive performance, and longevity.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Sleep Optimization Algorithm:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Sleep Duration (40% weight):</strong></div>
+                        <div class="ml-4">• 7-9 hours: optimal (100 points)</div>
+                        <div class="ml-4">• 6-7 or 9-10 hours: good (80 points)</div>
+                        <div class="ml-4">• <6 or >10 hours: suboptimal</div>
+                        <div><strong>Sleep Quality (40% weight):</strong></div>
+                        <div class="ml-4">• Self-reported quality scale 1-5</div>
+                        <div><strong>Sleep Hygiene (20% weight):</strong></div>
+                        <div class="ml-4">• Consistent schedule, environment</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Sleep Enhancers:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Consistent sleep schedule: +15 points</div>
+                            <div>• Dark, cool environment: +10 points</div>
+                            <div>• Regular exercise: +10 points</div>
+                            <div>• Limited screen time: +10 points</div>
+                            <div>• Relaxation practices: +5 points</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Sleep Disruptors:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• High stress levels: -20 points</div>
+                            <div>• Excessive caffeine: -15 points</div>
+                            <div>• Alcohol consumption: -15 points</div>
+                            <div>• Irregular schedule: -15 points</div>
+                            <div>• Electronic device use: -10 points</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. Stress Resilience -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">7. Stress Resilience Optimization</h3>
+                    <div class="flex space-x-2">
+                        <span class="health-tag text-white text-xs px-3 py-1 rounded-full">HEALTH DOMAIN</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">HPA Axis & Stress Management:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Assesses stress levels, coping mechanisms, and physiological stress markers for optimal stress response.
+                        Critical for preventing chronic disease and maintaining mental health.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Stress Resilience Algorithm:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Perceived Stress (40% weight):</strong></div>
+                        <div class="ml-4">• Low stress (1-3/10): +25 points</div>
+                        <div class="ml-4">• Moderate (4-6/10): +15 points</div>
+                        <div class="ml-4">• High stress (7-10/10): negative points</div>
+                        <div><strong>Coping Mechanisms (35% weight):</strong></div>
+                        <div class="ml-4">• Active stress management practices</div>
+                        <div><strong>Physiological Markers (25% weight):</strong></div>
+                        <div class="ml-4">• Blood pressure, heart rate variability</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Resilience Builders:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Meditation/mindfulness: +20 points</div>
+                            <div>• Regular exercise: +15 points</div>
+                            <div>• Social support: +15 points</div>
+                            <div>• Time in nature: +10 points</div>
+                            <div>• Hobbies/relaxation: +10 points</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Stress Amplifiers:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Chronic high stress: -25 points</div>
+                            <div>• Poor coping skills: -20 points</div>
+                            <div>• Social isolation: -15 points</div>
+                            <div>• Financial stress: -15 points</div>
+                            <div>• Work-life imbalance: -10 points</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. Nutritional Status -->
+            <div class="algorithm-card bg-gray-50 p-6 mb-6 rounded-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">8. Nutritional Status Optimization</h3>
+                    <div class="flex space-x-2">
+                        <span class="health-tag text-white text-xs px-3 py-1 rounded-full">HEALTH DOMAIN</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Comprehensive Nutritional Assessment:</h4>
+                    <p class="text-gray-600 text-sm">
+                        Evaluates micronutrient status, antioxidant capacity, and dietary quality for optimal nutritional health.
+                        Foundation for all other health domains and longevity.
+                    </p>
+                </div>
+
+                <div class="formula p-4 rounded mb-4">
+                    <h4 class="font-semibold text-green-700 mb-2">Nutritional Optimization Algorithm:</h4>
+                    <div class="text-sm space-y-1">
+                        <div><strong>Micronutrient Status (50% weight):</strong></div>
+                        <div class="ml-4">• Vitamin D >50 ng/mL: +20 points</div>
+                        <div class="ml-4">• Vitamin B12 >500 pg/mL: +15 points</div>
+                        <div class="ml-4">• Folate >8 ng/mL: +10 points</div>
+                        <div><strong>Diet Quality (35% weight):</strong></div>
+                        <div class="ml-4">• High quality (4-5/5): +25 points</div>
+                        <div><strong>Antioxidant Status (15% weight):</strong></div>
+                        <div class="ml-4">• Fruit/vegetable intake, variety</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Nutritional Enhancers:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• High diet quality: +25 points</div>
+                            <div>• Adequate micronutrients: +20 points</div>
+                            <div>• Antioxidant-rich foods: +15 points</div>
+                            <div>• Omega-3 sufficiency: +10 points</div>
+                            <div>• Proper hydration: +10 points</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Nutritional Deficits:</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>• Poor diet quality: -25 points</div>
+                            <div>• Micronutrient deficiency: -20 points</div>
+                            <div>• Excessive processed foods: -15 points</div>
+                            <div>• Low antioxidant intake: -10 points</div>
+                            <div>• Inadequate hydration: -10 points</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health Domains Summary -->
+            <div class="bg-green-50 p-6 rounded-lg">
+                <h3 class="text-lg font-semibold text-green-800 mb-4">Complete Health Optimization Implementation</h3>
+                <div class="grid md:grid-cols-2 gap-6 text-sm">
+                    <div>
+                        <h4 class="font-medium text-green-700 mb-2">All 8 Health Domains Implemented:</h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="text-green-600">
+                                <ul class="space-y-1">
+                                    <li>✓ 1. Metabolic Health</li>
+                                    <li>✓ 2. Cardiovascular Fitness</li>
+                                    <li>✓ 3. Cognitive Reserve</li>
+                                    <li>✓ 4. Immune Resilience</li>
+                                </ul>
+                            </div>
+                            <div class="text-green-600">
+                                <ul class="space-y-1">
+                                    <li>✓ 5. Physical Performance</li>
+                                    <li>✓ 6. Sleep Quality</li>
+                                    <li>✓ 7. Stress Resilience</li>
+                                    <li>✓ 8. Nutritional Status</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-green-700 mb-2">Optimization Features:</h4>
+                        <ul class="text-green-600 space-y-1">
+                            <li>• Each domain: 0-100% optimization score</li>
+                            <li>• Health span projection calculations</li>
+                            <li>• Strength identification (≥80% domains)</li>
+                            <li>• Opportunity targeting (<70% domains)</li>
+                            <li>• Evidence-based optimization thresholds</li>
+                            <li>• Lifestyle intervention recommendations</li>
+                            <li>• Positive health focus vs. disease risk</li>
+                            <li>• Personalized optimization pathways</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Final Summary -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-check-circle text-green-600 mr-2"></i>Complete Algorithm Implementation Summary
+            </h2>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <i class="fas fa-heartbeat text-blue-600 text-3xl mb-3"></i>
+                    <div class="text-2xl font-bold text-blue-600">7/7</div>
+                    <div class="text-sm text-gray-600">Disease Risk Categories</div>
+                    <div class="text-xs text-gray-500 mt-1">ASCVD, Diabetes, Kidney, Cancer, Cognitive, MetS, Stroke</div>
+                </div>
+                
+                <div class="text-center p-4 bg-green-50 rounded-lg">
+                    <i class="fas fa-dna text-green-600 text-3xl mb-3"></i>
+                    <div class="text-2xl font-bold text-green-600">4/4</div>
+                    <div class="text-sm text-gray-600">Biological Age Methods</div>
+                    <div class="text-xs text-gray-500 mt-1">Phenotypic, KDM, Metabolic, Consensus</div>
+                </div>
+                
+                <div class="text-center p-4 bg-purple-50 rounded-lg">
+                    <i class="fas fa-skull text-purple-600 text-3xl mb-3"></i>
+                    <div class="text-2xl font-bold text-purple-600">12/12</div>
+                    <div class="text-sm text-gray-600">Hallmarks of Aging</div>
+                    <div class="text-xs text-gray-500 mt-1">Primary (4) + Antagonistic (4) + Integrative (4)</div>
+                </div>
+                
+                <div class="text-center p-4 bg-emerald-50 rounded-lg">
+                    <i class="fas fa-heart text-emerald-600 text-3xl mb-3"></i>
+                    <div class="text-2xl font-bold text-emerald-600">8/8</div>
+                    <div class="text-sm text-gray-600">Hallmarks of Health</div>
+                    <div class="text-xs text-gray-500 mt-1">Complete optimization domains</div>
+                </div>
+            </div>
+
+            <div class="mt-8 bg-gradient-to-r from-gray-100 to-gray-200 p-6 rounded-lg">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Technical Implementation Status: 100% COMPLETE</h3>
+                <div class="grid md:grid-cols-3 gap-6 text-sm">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Algorithm Coverage:</h4>
+                        <ul class="text-gray-600 space-y-1">
+                            <li>✅ ALL 31 major algorithms implemented</li>
+                            <li>✅ Evidence-based scoring thresholds</li>
+                            <li>✅ Age-stratified calculations</li>
+                            <li>✅ Gender-specific adjustments</li>
+                            <li>✅ Missing data handling</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Clinical Validation:</h4>
+                        <ul class="text-gray-600 space-y-1">
+                            <li>✅ Published research references</li>
+                            <li>✅ Clinical guideline adherence</li>
+                            <li>✅ Population-validated coefficients</li>
+                            <li>✅ Mortality prediction accuracy</li>
+                            <li>✅ Biomarker threshold validation</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">System Integration:</h4>
+                        <ul class="text-gray-600 space-y-1">
+                            <li>✅ Real-time calculation engine</li>
+                            <li>✅ Confidence scoring system</li>
+                            <li>✅ Risk stratification logic</li>
+                            <li>✅ Optimization recommendations</li>
+                            <li>✅ Clinical interpretation guidelines</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

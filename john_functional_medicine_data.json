@@ -1,0 +1,150 @@
+{
+  "fullName": "John TestUser",
+  "dateOfBirth": "1978-08-15",
+  "gender": "male",
+  "email": "john.testuser@longenix.demo",
+  "height": "180",
+  "weight": "75",
+  "systolicBP": "135",
+  "diastolicBP": "85",
+  "ldlCholesterol": "125",
+  "hdlCholesterol": "45",
+  "totalCholesterol": "220",
+  "triglycerides": "150",
+  "hba1c": "5.7",
+  "glucose": "95",
+  "creatinine": "1.0",
+  "egfr": "85",
+  "albumin": "4.2",
+  "albuminCreatinineRatio": "15",
+  "cReactiveProtein": "2.5",
+  "vitaminD": "28",
+  "whiteBoodCells": "6.8",
+  "lymphocytePercent": "28",
+  "hemoglobin": "14.5",
+  "smokingStatus": "never",
+  "stressLevel": "4",
+  "sleepQuality": "3",
+  "exerciseFrequency": "3",
+  "alcoholConsumption": "2",
+  "familyHistory": ["family_heart_disease", "family_diabetes", "family_hypertension"],
+  "currentMedications": "None",
+  "currentSupplements": "Multivitamin, Omega-3",
+  "pastConditions": "None",
+  "allergies": "None",
+  
+  "functionalMedicineAssessment": {
+    "assimilation": {
+      "bloatingFrequency": "2",
+      "bowelMovementRegularity": "4", 
+      "digestiveComfort": "3",
+      "foodSensitivities": "1",
+      "gasAbdominalDiscomfort": "2",
+      "postMealSatisfaction": "3",
+      "responses": {
+        "How often do you experience bloating after meals?": "2",
+        "Do you have regular, well-formed bowel movements?": "4",
+        "How would you rate your digestive comfort overall?": "3", 
+        "Do you have known food sensitivities or intolerances?": "1",
+        "How often do you experience gas or abdominal discomfort?": "2",
+        "Do you feel satisfied and energized after meals?": "3"
+      }
+    },
+    "biotransformation": {
+      "fatigueSluggishness": "3",
+      "bowelMovementFrequency": "3",
+      "alcoholCaffeineTolerance": "2",
+      "sweatDuringActivity": "4",
+      "chemicalSensitivity": "2",
+      "detoxificationEnergy": "3",
+      "responses": {
+        "How often do you feel fatigued or sluggish?": "3",
+        "Do you have regular bowel movements (at least once daily)?": "3",
+        "How well do you tolerate alcohol or caffeine?": "2",
+        "Do you sweat easily during physical activity?": "4",
+        "How sensitive are you to strong odors or chemicals?": "2",
+        "How would you rate your overall energy for detoxification?": "3"
+      }
+    },
+    "defense": {
+      "infectionFrequency": "2",
+      "recoverySpeed": "3",
+      "autoimmuneSympotms": "1",
+      "woundHealing": "4",
+      "chronicInflammation": "3",
+      "immuneStrength": "3",
+      "responses": {
+        "How often do you get colds or infections?": "2",
+        "How quickly do you recover from illness?": "3", 
+        "Do you have any autoimmune conditions or symptoms?": "1",
+        "How well do cuts and wounds heal?": "4",
+        "Do you experience chronic inflammation or pain?": "3",
+        "How would you rate your overall immune strength?": "3"
+      }
+    },
+    "structural": {
+      "jointPainStiffness": "2",
+      "muscleStrength": "4",
+      "postureAlignment": "3",
+      "backNeckPain": "3",
+      "balanceCoordination": "4",
+      "physicalMobility": "4",
+      "responses": {
+        "Do you experience joint pain or stiffness?": "2",
+        "How would you rate your muscle strength?": "4",
+        "Do you have good posture and alignment?": "3",
+        "How often do you experience back or neck pain?": "3",
+        "Do you have good balance and coordination?": "4",
+        "How would you rate your overall physical mobility?": "4"
+      }
+    },
+    "communication": {
+      "moodStability": "2",
+      "sleepPatterns": "3",
+      "stressHandling": "2",
+      "hormoneSymptoms": "2",
+      "mentalFocus": "3",
+      "emotionalRegulation": "3",
+      "responses": {
+        "How stable is your mood throughout the day?": "2",
+        "Do you have regular, restful sleep patterns?": "3",
+        "How well do you handle stress?": "2",
+        "Do you experience hormone-related symptoms?": "2", 
+        "How sharp is your mental focus and concentration?": "3",
+        "How would you rate your emotional regulation?": "3"
+      }
+    },
+    "energy": {
+      "dailyEnergyLevels": "3",
+      "afternoonCrashes": "3",
+      "exerciseRecovery": "3",
+      "sleepRefreshment": "2",
+      "energyWithoutCaffeine": "2",
+      "overallVitality": "3",
+      "responses": {
+        "How are your energy levels throughout the day?": "3",
+        "Do you experience afternoon energy crashes?": "3",
+        "How well do you recover from physical exertion?": "3", 
+        "Do you feel refreshed after sleep?": "2",
+        "How stable is your energy without caffeine?": "2",
+        "How would you rate your overall vitality?": "3"
+      }
+    },
+    "transport": {
+      "heartHealthSymptons": "2",
+      "circulationWarmth": "3",
+      "swellingRetention": "1",
+      "breathingEase": "4",
+      "bloodPressureAwareness": "3",
+      "cardiovascularFitness": "3",
+      "responses": {
+        "Do you experience heart palpitations or chest discomfort?": "2",
+        "How good is your circulation (warm hands and feet)?": "3",
+        "Do you experience swelling or fluid retention?": "1",
+        "How easily do you get out of breath with activity?": "4",
+        "Are you aware of having high or low blood pressure?": "3",
+        "How would you rate your cardiovascular fitness?": "3"
+      }
+    }
+  }
+}
