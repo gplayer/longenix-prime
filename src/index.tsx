@@ -5,6 +5,10 @@ import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalcula
 
 type Bindings = {
   DB: D1Database;
+  BASIC_AUTH_USER?: string;
+  BASIC_AUTH_PASS?: string;
+  JWT_SECRET?: string;
+  MAIL_ENABLED?: string;
 }
 
 // Helper function to calculate age from date of birth
@@ -1024,6 +1028,40 @@ function generateATMTimelineInsights(comprehensiveData: any): string {
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
+
+// Basic Auth middleware (fallback until Cloudflare Access is configured)
+app.use('*', async (c, next) => {
+  const authUser = c.env.BASIC_AUTH_USER
+  const authPass = c.env.BASIC_AUTH_PASS
+  
+  if (authUser && authPass) {
+    const authorization = c.req.header('Authorization')
+    
+    if (!authorization) {
+      return c.text('Unauthorized', 401, {
+        'WWW-Authenticate': 'Basic realm="LongenixPrime"'
+      })
+    }
+    
+    const [scheme, credentials] = authorization.split(' ')
+    if (scheme !== 'Basic') {
+      return c.text('Unauthorized', 401, {
+        'WWW-Authenticate': 'Basic realm="LongenixPrime"'
+      })
+    }
+    
+    const decoded = atob(credentials)
+    const [username, password] = decoded.split(':')
+    
+    if (username !== authUser || password !== authPass) {
+      return c.text('Unauthorized', 401, {
+        'WWW-Authenticate': 'Basic realm="LongenixPrime"'
+      })
+    }
+  }
+  
+  await next()
+})
 
 // Noindex all responses until launch
 app.use('*', async (c, next) => {
