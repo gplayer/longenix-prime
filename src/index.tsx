@@ -9,6 +9,8 @@ type Bindings = {
   BASIC_AUTH_PASS?: string;
   JWT_SECRET?: string;
   MAIL_ENABLED?: string;
+  CF_ACCOUNT_ID?: string;
+  CLOUDFLARE_API_TOKEN?: string;
 }
 
 // Helper function to calculate age from date of birth
@@ -1075,6 +1077,58 @@ app.use('/api/*', cors())
 // Serve static files  
 app.use('/css/*', serveStatic({ root: './public' }))
 app.use('/js/*', serveStatic({ root: './public' }))
+
+// Preview redirect endpoint - redirects to latest preview deployment
+app.get('/preview', async (c) => {
+  const accountId = c.env.CF_ACCOUNT_ID
+  const apiToken = c.env.CLOUDFLARE_API_TOKEN
+  
+  // Check if required environment variables are configured
+  if (!accountId || !apiToken) {
+    return c.text('Preview redirect not configured. Missing CF_ACCOUNT_ID or CLOUDFLARE_API_TOKEN.', 503)
+  }
+  
+  try {
+    // Call Cloudflare API to get latest preview deployment
+    const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/longenix-prime/deployments?env=preview&per_page=1`
+    
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      console.error('Cloudflare API error:', response.status, await response.text())
+      return c.text('Failed to fetch preview deployment from Cloudflare API.', 503)
+    }
+    
+    const data = await response.json() as {
+      success: boolean;
+      result: Array<{
+        id: string;
+        url: string;
+        environment: string;
+      }>;
+    }
+    
+    // Check if we got a valid preview deployment
+    if (!data.success || !data.result || data.result.length === 0) {
+      return c.text('No preview deployment found.', 503)
+    }
+    
+    const latestPreview = data.result[0]
+    const previewUrl = latestPreview.url
+    
+    // Return 302 redirect to the latest preview deployment
+    return c.redirect(previewUrl, 302)
+    
+  } catch (error) {
+    console.error('Error fetching preview deployment:', error)
+    return c.text('Internal error while fetching preview deployment.', 503)
+  }
+})
 
 // Authentication API
 app.post('/api/auth/login', async (c) => {
