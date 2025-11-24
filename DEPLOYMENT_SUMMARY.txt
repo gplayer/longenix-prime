@@ -13,7 +13,7 @@
 │                                                                            │
 │ 🔐 Access Credentials:                                                     │
 │    Username: preview                                                       │
-│    Password: L3KfNxvcV5HqCWUSb6pcxBSPxKS2DOWy                             │
+│    Password: [REDACTED]                             │
 │                                                                            │
 │ ✅ Security Tests Passed:                                                  │
 │    • Basic Auth Challenge (401 + WWW-Authenticate)                        │
@@ -33,7 +33,7 @@
 │                                                                            │
 │ 🔐 Access Credentials:                                                     │
 │    Username: preview                                                       │
-│    Password: tlr/RnP1EcyCmrf113T6fRhEiuW4AglI                             │
+│    Password: [REDACTED]                             │
 │                                                                            │
 │ ✅ Security Tests Passed:                                                  │
 │    • Basic Auth Challenge (401 + WWW-Authenticate)                        │

@@ -136,14 +136,14 @@ Both databases share identical schema with 16 tables:
 ```
 URL: https://longenix-prime.pages.dev
 Username: preview
-Password: L3KfNxvcV5HqCWUSb6pcxBSPxKS2DOWy
+Password: [REDACTED]
 ```
 
 ### Preview Access
 ```
 URL: https://preview.longenix-prime.pages.dev
 Username: preview
-Password: tlr/RnP1EcyCmrf113T6fRhEiuW4AglI
+Password: [REDACTED]
 ```
 
 **Security Notes**:
