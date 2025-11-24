@@ -32,7 +32,7 @@ All objectives completed:
 ### Security Configuration
 - **Basic Authentication**: ✅ Enabled
   - **Username**: `preview`
-  - **Password**: `L3KfNxvcV5HqCWUSb6pcxBSPxKS2DOWy`
+  - **Password**: `[REDACTED]`
   - **Realm**: LongenixPrime
 - **X-Robots-Tag**: `noindex, nofollow` (verified)
 - **WWW-Authenticate Header**: Present on 401 responses
@@ -68,7 +68,7 @@ All objectives completed:
 ### Security Configuration
 - **Basic Authentication**: ✅ Enabled
   - **Username**: `preview`
-  - **Password**: `tlr/RnP1EcyCmrf113T6fRhEiuW4AglI`
+  - **Password**: `[REDACTED]`
   - **Realm**: LongenixPrime
 - **X-Robots-Tag**: `noindex, nofollow` (verified)
 - **WWW-Authenticate Header**: Present on 401 responses
@@ -201,12 +201,12 @@ curl -i https://longenix-prime.pages.dev/
 # Expected: 401 Unauthorized + WWW-Authenticate header
 
 # Test Authenticated Access
-curl -u preview:L3KfNxvcV5HqCWUSb6pcxBSPxKS2DOWy \
+curl -u preview:[REDACTED] \
   https://longenix-prime.pages.dev/
 # Expected: 200 OK + HTML content
 
 # Verify Headers
-curl -I -u preview:L3KfNxvcV5HqCWUSb6pcxBSPxKS2DOWy \
+curl -I -u preview:[REDACTED] \
   https://longenix-prime.pages.dev/
 # Expected: x-robots-tag: noindex, nofollow
 ```
