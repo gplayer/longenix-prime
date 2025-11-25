@@ -2,6 +2,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalculator, HealthOptimizationCalculator } from './medical-algorithms'
+import { AssessmentIntakeSchema, normalizeAssessmentData, formatValidationError } from './validation'
+import { logger, createErrorFingerprint, getStackExcerpt } from './logger'
+import { ZodError } from 'zod'
 
 type Bindings = {
   DB: D1Database;
@@ -11,6 +14,7 @@ type Bindings = {
   MAIL_ENABLED?: string;
   CF_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
+  LOG_LEVEL?: string;
 }
 
 // Helper function to calculate age from date of birth
@@ -1078,6 +1082,17 @@ app.use('/api/*', cors())
 app.use('/css/*', serveStatic({ root: './public' }))
 app.use('/js/*', serveStatic({ root: './public' }))
 
+// Health check / ping endpoint
+app.get('/api/ping', async (c) => {
+  const { env } = c
+  return c.json({
+    ok: true,
+    env: 'preview',
+    db: !!env.DB,
+    timestamp: new Date().toISOString()
+  })
+})
+
 // Preview redirect endpoint - redirects to latest preview deployment
 app.get('/preview', async (c) => {
   const accountId = c.env.CF_ACCOUNT_ID
@@ -1584,6 +1599,36 @@ function analyzeFunctionalMedicineSystem(systemId: string, systemName: string, s
     interventions,
     systemOptimization,
     functionalMedicineApproach: `${systemName} dysfunction requires a root-cause approach addressing upstream factors rather than symptom suppression. Focus on identifying and correcting underlying imbalances through comprehensive testing and targeted interventions.`
+  }
+}
+
+// Fail-safe section renderer - prevents entire report failure if one section crashes
+function renderSectionSafely(sectionName: string, renderFn: () => string): string {
+  try {
+    return renderFn()
+  } catch (error) {
+    const errorObj = error as Error
+    logger.warn(`Report section failed: ${sectionName}`, {
+      section: sectionName,
+      error: errorObj.message
+    })
+    
+    return `
+      <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-yellow-700">
+              <strong>⚠ Section unavailable:</strong> ${sectionName} could not be rendered. This has been logged for review.
+            </p>
+          </div>
+        </div>
+      </div>
+    `
   }
 }
 
@@ -10483,23 +10528,91 @@ app.get('/api/test/atm-timeline', async (c) => {
 
 // API endpoint to process comprehensive assessment
 app.post('/api/assessment/comprehensive', async (c) => {
-  const { env } = c
-  const assessmentData = await c.req.json()
+  const startTime = Date.now()
   
+  // Top-level defensive try/catch to ensure ALL errors are caught
   try {
-    // Enhanced data validation and structure handling
-    const demo = assessmentData.demographics || assessmentData
-    const clinical = assessmentData.clinical || assessmentData
-    const biomarkers = assessmentData.biomarkers || assessmentData
+    const { env } = c
     
-    // Validate required demographics data
-    if (!demo.fullName || !demo.dateOfBirth || !demo.gender) {
+    // Parse JSON with error handling
+    let rawData: any
+    try {
+      rawData = await c.req.json()
+    } catch (parseError) {
+      const parseErr = parseError as Error
+      logger.warn('JSON parse error', { 
+        route: '/api/assessment/comprehensive',
+        error: parseErr.message || 'Invalid JSON'
+      })
       return c.json({
         success: false,
-        error: 'Missing required demographic data (fullName, dateOfBirth, gender)',
-        received: Object.keys(assessmentData)
+        error: 'Invalid JSON format',
+        details: [{ field: 'body', message: 'Request body must be valid JSON' }]
       }, 400)
     }
+    
+    // Server-side validation with Zod (wrapped in try/catch)
+    let validationResult: any
+    try {
+      validationResult = AssessmentIntakeSchema.safeParse(rawData)
+    } catch (schemaError) {
+      const err = schemaError as Error
+      logger.logError({
+        route: '/api/assessment/comprehensive',
+        error_name: 'SchemaError',
+        fingerprint: 'schema-parse-fail',
+        stack_excerpt: err.message,
+        status: 500
+      })
+      return c.json({
+        success: false,
+        error: 'Schema validation error',
+        details: [{ field: 'schema', message: 'Internal validation error occurred' }]
+      }, 500)
+    }
+    
+    if (!validationResult.success) {
+      let errorResponse: any
+      try {
+        errorResponse = formatValidationError(validationResult.error)
+      } catch (formatError) {
+        // Fallback if error formatting fails
+        errorResponse = {
+          success: false,
+          error: 'Validation failed',
+          details: [{ field: 'unknown', message: 'Validation error occurred' }]
+        }
+      }
+      logger.warn('Validation failed', { 
+        route: '/api/assessment/comprehensive',
+        error_count: validationResult.error?.errors?.length || 0
+      })
+      return c.json(errorResponse, 400)
+    }
+    
+    // Normalize validated data (wrapped defensively)
+    let assessmentData: any
+    try {
+      assessmentData = normalizeAssessmentData(validationResult.data)
+    } catch (normalizeError) {
+      const err = normalizeError as Error
+      logger.logError({
+        route: '/api/assessment/comprehensive',
+        error_name: 'NormalizationError',
+        fingerprint: 'normalize-fail',
+        stack_excerpt: err.message,
+        status: 500
+      })
+      return c.json({
+        success: false,
+        error: 'Data normalization error',
+        details: [{ field: 'normalization', message: 'Failed to normalize validated data' }]
+      }, 500)
+    }
+    
+    const demo = assessmentData.demographics
+    const clinical = assessmentData.clinical
+    const biomarkers = assessmentData.biomarkers
     
     // Calculate age from date of birth (consistent with other endpoints)
     const birthDate = new Date(demo.dateOfBirth)
@@ -10660,6 +10773,16 @@ app.post('/api/assessment/comprehensive', async (c) => {
       ).run()
     }
 
+    // Log successful request
+    const duration = Date.now() - startTime
+    logger.logRequest({
+      route: '/api/assessment/comprehensive',
+      method: 'POST',
+      duration_ms: duration,
+      rows_returned: 1,
+      status: 200
+    })
+    
     return c.json({ 
       success: true, 
       sessionId: sessionId,
@@ -10668,19 +10791,41 @@ app.post('/api/assessment/comprehensive', async (c) => {
     })
 
   } catch (error) {
-    console.error('Comprehensive assessment error:', error)
+    // Log error with anonymized details
+    const errorObj = error as Error
+    const errorMessage = errorObj.message || 'Unknown error'
+    
+    logger.logError({
+      route: '/api/assessment/comprehensive',
+      error_name: errorObj.name || 'Error',
+      fingerprint: createErrorFingerprint(errorObj, '/api/assessment/comprehensive'),
+      stack_excerpt: getStackExcerpt(errorObj),
+      status: 500
+    })
     
     // Handle specific database constraint errors
-    if (error.message && error.message.includes('UNIQUE constraint failed: patients.email')) {
+    if (errorMessage.includes('UNIQUE constraint failed: patients.email')) {
       return c.json({ 
         success: false, 
-        error: 'An assessment with this email address already exists. Please use a different email or contact support to access your existing assessment.'
-      }, 400)
+        error: 'Duplicate email address',
+        details: [{ field: 'demographics.email', message: 'An assessment with this email already exists' }]
+      }, 422)
     }
     
+    // Handle calculation/domain errors
+    if (errorMessage.includes('calculation') || errorMessage.includes('invalid') || errorMessage.includes('range')) {
+      return c.json({ 
+        success: false, 
+        error: 'Domain check failed',
+        details: [{ field: 'calculation', message: errorMessage }]
+      }, 422)
+    }
+    
+    // Generic 500 for unexpected errors (no PHI)
     return c.json({ 
       success: false, 
-      error: 'Failed to process comprehensive assessment. Please try again or contact support if the issue persists.'
+      error: 'Internal error',
+      details: [{ field: 'system', message: 'An unexpected error occurred. Please try again.' }]
     }, 500)
   }
 })

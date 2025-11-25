@@ -1,0 +1,50 @@
+{
+  "valid_payload": {
+    "demographics": {
+      "fullName": "John Smith",
+      "dateOfBirth": "1980-05-15",
+      "gender": "male",
+      "ethnicity": "caucasian",
+      "email": "john.smith@example.com",
+      "phone": "+1-555-0123"
+    },
+    "clinical": {
+      "height": 178,
+      "weight": 82,
+      "systolicBP": 125,
+      "diastolicBP": 82
+    },
+    "biomarkers": {
+      "glucose": 95,
+      "hba1c": 5.4,
+      "totalCholesterol": 185,
+      "hdlCholesterol": 52,
+      "ldlCholesterol": 115,
+      "triglycerides": 90
+    }
+  },
+  "invalid_payload_missing_required": {
+    "demographics": {
+      "fullName": "J",
+      "dateOfBirth": "2020-01-01",
+      "gender": "male"
+    }
+  },
+  "invalid_payload_out_of_range": {
+    "demographics": {
+      "fullName": "Jane Doe",
+      "dateOfBirth": "1985-03-20",
+      "gender": "female"
+    },
+    "clinical": {
+      "height": 165,
+      "weight": 5000,
+      "systolicBP": 400,
+      "diastolicBP": 200
+    },
+    "biomarkers": {
+      "glucose": 1500,
+      "hba1c": 50
+    }
+  }
+}

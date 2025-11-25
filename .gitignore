@@ -29,6 +29,7 @@ logs/
 *.bak
 *.tar.gz
 *.zip
+backups/
 
 # OS
 .DS_Store
