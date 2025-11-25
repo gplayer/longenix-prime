@@ -1082,6 +1082,17 @@ app.use('/api/*', cors())
 app.use('/css/*', serveStatic({ root: './public' }))
 app.use('/js/*', serveStatic({ root: './public' }))
 
+// Health check / ping endpoint
+app.get('/api/ping', async (c) => {
+  const { env } = c
+  return c.json({
+    ok: true,
+    env: 'preview',
+    db: !!env.DB,
+    timestamp: new Date().toISOString()
+  })
+})
+
 // Preview redirect endpoint - redirects to latest preview deployment
 app.get('/preview', async (c) => {
   const accountId = c.env.CF_ACCOUNT_ID
@@ -10517,18 +10528,21 @@ app.get('/api/test/atm-timeline', async (c) => {
 
 // API endpoint to process comprehensive assessment
 app.post('/api/assessment/comprehensive', async (c) => {
-  const { env } = c
   const startTime = Date.now()
   
+  // Top-level defensive try/catch to ensure ALL errors are caught
   try {
+    const { env } = c
+    
     // Parse JSON with error handling
     let rawData: any
     try {
       rawData = await c.req.json()
     } catch (parseError) {
+      const parseErr = parseError as Error
       logger.warn('JSON parse error', { 
         route: '/api/assessment/comprehensive',
-        error: 'Invalid JSON'
+        error: parseErr.message || 'Invalid JSON'
       })
       return c.json({
         success: false,
@@ -10537,20 +10551,65 @@ app.post('/api/assessment/comprehensive', async (c) => {
       }, 400)
     }
     
-    // Server-side validation with Zod
-    const validationResult = AssessmentIntakeSchema.safeParse(rawData)
+    // Server-side validation with Zod (wrapped in try/catch)
+    let validationResult: any
+    try {
+      validationResult = AssessmentIntakeSchema.safeParse(rawData)
+    } catch (schemaError) {
+      const err = schemaError as Error
+      logger.logError({
+        route: '/api/assessment/comprehensive',
+        error_name: 'SchemaError',
+        fingerprint: 'schema-parse-fail',
+        stack_excerpt: err.message,
+        status: 500
+      })
+      return c.json({
+        success: false,
+        error: 'Schema validation error',
+        details: [{ field: 'schema', message: 'Internal validation error occurred' }]
+      }, 500)
+    }
     
     if (!validationResult.success) {
-      const errorResponse = formatValidationError(validationResult.error)
+      let errorResponse: any
+      try {
+        errorResponse = formatValidationError(validationResult.error)
+      } catch (formatError) {
+        // Fallback if error formatting fails
+        errorResponse = {
+          success: false,
+          error: 'Validation failed',
+          details: [{ field: 'unknown', message: 'Validation error occurred' }]
+        }
+      }
       logger.warn('Validation failed', { 
         route: '/api/assessment/comprehensive',
-        error_count: validationResult.error.errors.length 
+        error_count: validationResult.error?.errors?.length || 0
       })
       return c.json(errorResponse, 400)
     }
     
-    // Normalize validated data
-    const assessmentData = normalizeAssessmentData(validationResult.data)
+    // Normalize validated data (wrapped defensively)
+    let assessmentData: any
+    try {
+      assessmentData = normalizeAssessmentData(validationResult.data)
+    } catch (normalizeError) {
+      const err = normalizeError as Error
+      logger.logError({
+        route: '/api/assessment/comprehensive',
+        error_name: 'NormalizationError',
+        fingerprint: 'normalize-fail',
+        stack_excerpt: err.message,
+        status: 500
+      })
+      return c.json({
+        success: false,
+        error: 'Data normalization error',
+        details: [{ field: 'normalization', message: 'Failed to normalize validated data' }]
+      }, 500)
+    }
+    
     const demo = assessmentData.demographics
     const clinical = assessmentData.clinical
     const biomarkers = assessmentData.biomarkers
