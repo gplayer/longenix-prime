@@ -1,0 +1,9 @@
+Uploading... (10/10)
+✨ Success! Uploaded 0 files (10 already uploaded) (0.32 sec)
+
+✨ Compiled Worker successfully
+✨ Uploading Worker bundle
+✨ Uploading _routes.json
+🌎 Deploying...
+✨ Deployment complete! Take a peek over at https://1707e5d7.longenix-prime.pages.dev
+✨ Deployment alias URL: https://fix-preview-stabilize-500s.longenix-prime.pages.dev

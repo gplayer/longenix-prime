@@ -1,5 +1,25 @@
 import { z } from 'zod'
 
+// PREVIEW STABILIZATION: Minimal, known-good schema for emergency stabilization
+// This schema is intentionally minimal to ensure 100% predictable validation
+const Demographics = z.object({
+  fullName: z.string().min(2, "Full name must be at least 2 characters").max(100),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date of birth must be in YYYY-MM-DD format"),
+  gender: z.enum(["male", "female", "other"], { errorMap: () => ({ message: "Gender must be male, female, or other" }) }),
+  email: z.string().email().optional().or(z.literal(""))
+})
+
+const Clinical = z.object({
+  weight: z.number().max(500, "Weight cannot exceed 500 kg").optional(),
+  height: z.number().max(300, "Height cannot exceed 300 cm").optional()
+}).partial().optional()
+
+// PREVIEW-ONLY: Minimal intake schema for stabilization
+export const MinimalIntakeSchema = z.object({
+  demographics: Demographics,
+  clinical: Clinical
+}).strict()
+
 // Validation schema for comprehensive assessment intake
 export const AssessmentIntakeSchema = z.object({
   demographics: z.object({

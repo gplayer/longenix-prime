@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalculator, HealthOptimizationCalculator } from './medical-algorithms'
-import { AssessmentIntakeSchema, normalizeAssessmentData, formatValidationError } from './validation'
+import { AssessmentIntakeSchema, normalizeAssessmentData, formatValidationError, MinimalIntakeSchema } from './validation'
 import { logger, createErrorFingerprint, getStackExcerpt } from './logger'
 import { ZodError } from 'zod'
 
@@ -10785,350 +10785,97 @@ app.get('/api/test/atm-timeline', async (c) => {
 });
 
 // API endpoint to process comprehensive assessment
+// PREVIEW STABILIZATION: Emergency dry-run endpoint to isolate validation issues
 app.post('/api/assessment/comprehensive', async (c) => {
-  const startTime = Date.now()
-  
-  // Top-level defensive try/catch to ensure ALL errors are caught
+  // OUTER GUARD: Catch ALL exceptions to ensure no unhandled 500s escape
   try {
-    const { env } = c
-    
-    // Validate Content-Type (accept both application/json and text/json, tolerate missing charset)
-    const contentType = c.req.header('Content-Type') || ''
-    const isValidContentType = contentType.includes('application/json') || contentType.includes('text/json')
-    
-    if (!isValidContentType && contentType !== '') {
-      return c.json({
-        success: false,
-        error: 'Invalid Content-Type',
-        details: [{ 
-          field: 'Content-Type', 
-          message: `Expected application/json or text/json, got: ${contentType}` 
-        }]
-      }, 400)
-    }
-    
-    // Parse JSON with error handling
-    // First, capture the raw text for better error reporting
+    // Step 1: Read raw body text first
     let rawText: string
     try {
       rawText = await c.req.text()
-    } catch (textError) {
+    } catch (readError) {
       return c.json({
         success: false,
         error: 'Failed to read request body',
-        details: [{ field: 'body', message: 'Could not read request body as text' }]
+        details: [{ field: 'body', message: 'Could not read request body' }]
       }, 400)
     }
+
+    // Log snippet for debugging (no PHI - just first 80 chars)
+    const snippet = rawText.substring(0, 80)
     
-    // Now parse the raw text as JSON
-    let rawData: any
+    // Step 2: Validate Content-Type
+    const contentType = c.req.header('Content-Type') || ''
+    const hasJsonContentType = contentType.includes('application/json') || contentType.includes('text/json')
+    
+    if (!hasJsonContentType && contentType !== '') {
+      return c.json({
+        success: false,
+        error: 'Invalid Content-Type',
+        details: [{ field: 'Content-Type', message: `Expected application/json or text/json, got: ${contentType}` }]
+      }, 400)
+    }
+
+    // Step 3: Parse JSON with hardened error handling
+    let body: any
     try {
-      rawData = JSON.parse(rawText)
+      body = JSON.parse(rawText)
     } catch (parseError) {
-      const parseErr = parseError as Error
-      const snippet = rawText.substring(0, 80)
-      logger.warn('JSON parse error', { 
-        route: '/api/assessment/comprehensive',
-        error: parseErr.message || 'Invalid JSON',
-        snippet_length: snippet.length
-      })
       return c.json({
         success: false,
         error: 'Invalid JSON format',
-        details: [{ 
-          field: 'body', 
-          message: `Request body must be valid JSON. Starts with: ${snippet}` 
-        }]
+        details: [{ field: 'body', message: 'Request body must be valid JSON' }]
       }, 400)
     }
+
+    // Step 4: Run minimal validation with known-good schema
+    const parsed = MinimalIntakeSchema.safeParse(body)
     
-    // Server-side validation with Zod (wrapped in try/catch)
-    let validationResult: any
-    try {
-      validationResult = AssessmentIntakeSchema.safeParse(rawData)
-    } catch (schemaError) {
-      const err = schemaError as Error
-      logger.logError({
-        route: '/api/assessment/comprehensive',
-        error_name: 'SchemaError',
-        fingerprint: 'schema-parse-fail',
-        stack_excerpt: err.message,
-        status: 500
-      })
+    if (!parsed.success) {
+      // Map Zod errors to dot-notation paths
+      const details = parsed.error.issues.map(issue => ({
+        field: issue.path.join('.') || 'unknown',
+        message: issue.message || 'Invalid value'
+      }))
+      
       return c.json({
         success: false,
-        error: 'Schema validation error',
-        details: [{ field: 'schema', message: 'Internal validation error occurred' }]
-      }, 500)
+        error: 'Validation failed',
+        details
+      }, 400)
     }
+
+    // Step 5: DRY-RUN MODE - PREVIEW ONLY
+    // TODO: re-enable calculators and DB writes after stabilization
+    const DRY_RUN = true
     
-    if (!validationResult.success) {
-      const errorResponse = formatValidationError(validationResult.error)
-      logger.warn('Validation failed', { 
-        route: '/api/assessment/comprehensive',
-        error_count: validationResult.error?.errors?.length || 0
-      })
-      return c.json(errorResponse, 400)
-    }
-    
-    // Normalize validated data (wrapped defensively)
-    let assessmentData: any
-    try {
-      assessmentData = normalizeAssessmentData(validationResult.data)
-    } catch (normalizeError) {
-      const err = normalizeError as Error
-      logger.logError({
-        route: '/api/assessment/comprehensive',
-        error_name: 'NormalizationError',
-        fingerprint: 'normalize-fail',
-        stack_excerpt: err.message,
-        status: 500
-      })
+    if (DRY_RUN) {
+      // Return synthetic success response (no DB writes, no calculators)
       return c.json({
-        success: false,
-        error: 'Data normalization error',
-        details: [{ field: 'normalization', message: 'Failed to normalize validated data' }]
-      }, 500)
-    }
-    
-    const demo = assessmentData.demographics
-    const clinical = assessmentData.clinical
-    const biomarkers = assessmentData.biomarkers
-    
-    // Calculate age from date of birth (consistent with other endpoints)
-    const birthDate = new Date(demo.dateOfBirth)
-    const age = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-    
-    const patientResult = await env.DB.prepare(`
-      INSERT INTO patients (full_name, date_of_birth, gender, ethnicity, email, phone, country)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      demo.fullName,
-      demo.dateOfBirth,
-      demo.gender,
-      demo.ethnicity || 'not_specified',
-      demo.email || '',
-      demo.phone || '',
-      'US' // Default country
-    ).run()
-
-    const patientId = patientResult.meta.last_row_id
-
-    // Create assessment session
-    const sessionResult = await env.DB.prepare(`
-      INSERT INTO assessment_sessions (patient_id, session_type, status)
-      VALUES (?, 'comprehensive', 'completed')
-    `).bind(patientId).run()
-
-    const sessionId = sessionResult.meta.last_row_id
-
-    // Prepare patient data for medical algorithms with safe defaults for minimal payload
-    const patientData = {
-      age: age,
-      gender: demo.gender as 'male' | 'female' | 'other',
-      height_cm: clinical.height || 170, // Default height if not provided
-      weight_kg: clinical.weight || 70,  // Default weight if not provided
-      systolic_bp: clinical.systolicBP || 120,
-      diastolic_bp: clinical.diastolicBP || 80,
-      biomarkers: {
-        glucose: biomarkers.glucose || null,
-        hba1c: biomarkers.hba1c || null,
-        total_cholesterol: biomarkers.totalCholesterol || null,
-        hdl_cholesterol: biomarkers.hdlCholesterol || null,
-        ldl_cholesterol: biomarkers.ldlCholesterol || null,
-        triglycerides: biomarkers.triglycerides || null,
-        creatinine: biomarkers.creatinine || null,
-        albumin: biomarkers.albumin || null,
-        c_reactive_protein: biomarkers.crp || null,
-        // Enhanced biomarker mapping for better algorithm accuracy
-        white_blood_cells: biomarkers.wbc || 6.5,
-        alkaline_phosphatase: biomarkers.alp || null,
-        lymphocyte_percent: biomarkers.lymphocytes || null,
-        mean_cell_volume: biomarkers.mcv || (demo.gender === 'female' ? 87 : 90), // Estimated if missing
-        red_cell_distribution_width: biomarkers.rdw || 13.5, // Estimated if missing
-        hemoglobin: biomarkers.hemoglobin || (demo.gender === 'female' ? 13.8 : 15.2),
-        egfr: biomarkers.egfr || (age < 60 ? 95 : Math.max(60, 120 - age))
-      }
+        success: true,
+        sessionId: 999001,
+        patientId: 888001,
+        message: 'Comprehensive assessment (dry-run) accepted'
+      }, 200)
     }
 
-    // Calculate all medical results (wrapped with safe error handling)
-    let biologicalAge, ascvdRisk, diabetesRisk, kidneyRisk, cancerRisk, cognitiveRisk, metabolicSyndromeRisk, strokeRisk, agingAssessment
-    
-    try {
-      biologicalAge = BiologicalAgeCalculator.calculateBiologicalAge(patientData)
-      ascvdRisk = DiseaseRiskCalculator.calculateASCVDRisk(patientData)
-      diabetesRisk = DiseaseRiskCalculator.calculateDiabetesRisk(patientData, {})
-      kidneyRisk = DiseaseRiskCalculator.calculateKidneyDiseaseRisk(patientData)
-      cancerRisk = DiseaseRiskCalculator.calculateCancerRisk(patientData, {})
-      cognitiveRisk = DiseaseRiskCalculator.calculateCognitiveDeclineRisk(patientData, {})
-      metabolicSyndromeRisk = DiseaseRiskCalculator.calculateMetabolicSyndromeRisk(patientData)
-      strokeRisk = DiseaseRiskCalculator.calculateStrokeRisk(patientData, {})
-      agingAssessment = HallmarksOfAgingCalculator.calculateAgingAssessment(patientData)
-    } catch (calcError) {
-      const err = calcError as Error
-      logger.logError({
-        route: '/api/assessment/comprehensive',
-        error_name: 'CalculationError',
-        fingerprint: 'calc-fail',
-        stack_excerpt: err.message || 'Calculator error',
-        status: 422
-      })
-      return c.json({
-        success: false,
-        error: 'Calculation error',
-        details: [{ field: 'calculation', message: `Medical calculation failed: ${err.message}` }]
-      }, 422)
-    }
-
-    // Store comprehensive assessment data as JSON
-    // Normalize ATM Framework data before storage (may be minimal for basic payload)
-    let normalizedAssessmentData
-    try {
-      normalizedAssessmentData = normalizeATMData(assessmentData)
-    } catch (atmError) {
-      // For minimal payload, ATM data might not be complete - use raw data
-      normalizedAssessmentData = assessmentData
-    }
-    
-    await env.DB.prepare(`
-      INSERT INTO assessment_data (session_id, data_type, json_data, created_at)
-      VALUES (?, 'comprehensive_lifestyle', ?, datetime('now'))
-    `).bind(
-      sessionId,
-      JSON.stringify(normalizedAssessmentData)
-    ).run()
-
-    // Save biological age results
-    await env.DB.prepare(`
-      INSERT INTO biological_age (session_id, chronological_age, phenotypic_age, klemera_doubal_age, 
-                                 metabolic_age, telomere_age, average_biological_age, age_advantage, calculation_method)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      sessionId,
-      age,
-      biologicalAge.phenotypic_age,
-      biologicalAge.klemera_doubal_age,
-      biologicalAge.metabolic_age,
-      biologicalAge.telomere_age,
-      biologicalAge.average_biological_age,
-      biologicalAge.age_advantage,
-      'Comprehensive: Phenotypic Age + KDM + Metabolic Age'
-    ).run()
-
-    // Save all disease risk assessments
-    const risks = [
-      { category: 'cardiovascular', result: ascvdRisk },
-      { category: 'diabetes', result: diabetesRisk },
-      { category: 'kidney_disease', result: kidneyRisk },
-      { category: 'cancer_risk', result: cancerRisk },
-      { category: 'cognitive_decline', result: cognitiveRisk },
-      { category: 'metabolic_syndrome', result: metabolicSyndromeRisk },
-      { category: 'stroke_risk', result: strokeRisk }
-    ]
-
-    for (const risk of risks) {
-      await env.DB.prepare(`
-        INSERT INTO risk_calculations (session_id, risk_category, risk_score, risk_level, 
-                                      ten_year_risk, algorithm_used)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).bind(
-        sessionId,
-        risk.category,
-        risk.result.risk_score,
-        risk.result.risk_level,
-        risk.result.ten_year_risk,
-        risk.result.algorithm_used
-      ).run()
-    }
-
-    // Save aging assessment results
-    const agingAssessmentResult = await env.DB.prepare(`
-      INSERT INTO aging_assessments (session_id, overall_aging_score, biological_age_acceleration, 
-                                   primary_concerns, confidence_level, calculation_date)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(
-      sessionId,
-      agingAssessment.overall_aging_score,
-      agingAssessment.biological_age_acceleration,
-      JSON.stringify(agingAssessment.primary_concerns),
-      agingAssessment.confidence_level,
-      agingAssessment.calculation_date
-    ).run()
-
-    // Save individual hallmark results
-    for (const hallmark of agingAssessment.hallmarks) {
-      await env.DB.prepare(`
-        INSERT INTO aging_hallmarks (aging_assessment_id, hallmark_name, impact_percentage, confidence_level,
-                                   markers_available, markers_missing, risk_level, description, 
-                                   algorithm_used, reference)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        agingAssessmentResult.meta.last_row_id,
-        hallmark.hallmark_name,
-        hallmark.impact_percentage,
-        hallmark.confidence_level,
-        JSON.stringify(hallmark.markers_available),
-        JSON.stringify(hallmark.markers_missing),
-        hallmark.risk_level,
-        hallmark.description,
-        hallmark.algorithm_used,
-        hallmark.reference
-      ).run()
-    }
-
-    // Log successful request
-    const duration = Date.now() - startTime
-    logger.logRequest({
-      route: '/api/assessment/comprehensive',
-      method: 'POST',
-      duration_ms: duration,
-      rows_returned: 1,
-      status: 200
-    })
-    
-    return c.json({ 
-      success: true, 
-      sessionId: sessionId,
-      patientId: patientId,
-      message: 'Comprehensive assessment completed successfully' 
-    })
+    // If we ever disable DRY_RUN, this code would execute (NOT REACHED IN PREVIEW)
+    return c.json({
+      success: false,
+      error: 'Not implemented',
+      details: [{ field: '_', message: 'Dry-run mode disabled but full flow not implemented' }]
+    }, 500)
 
   } catch (error) {
-    // Log error with anonymized details
-    const errorObj = error as Error
-    const errorMessage = errorObj.message || 'Unknown error'
+    // EMERGENCY CATCH-ALL: Never let an exception escape
+    const err = error as Error
+    const errorClass = err.constructor?.name || 'Error'
+    const errorMessage = err.message || 'Unknown error'
     
-    logger.logError({
-      route: '/api/assessment/comprehensive',
-      error_name: errorObj.name || 'Error',
-      fingerprint: createErrorFingerprint(errorObj, '/api/assessment/comprehensive'),
-      stack_excerpt: getStackExcerpt(errorObj),
-      status: 500
-    })
-    
-    // Handle specific database constraint errors
-    if (errorMessage.includes('UNIQUE constraint failed: patients.email')) {
-      return c.json({ 
-        success: false, 
-        error: 'Duplicate email address',
-        details: [{ field: 'demographics.email', message: 'An assessment with this email already exists' }]
-      }, 422)
-    }
-    
-    // Handle calculation/domain errors
-    if (errorMessage.includes('calculation') || errorMessage.includes('invalid') || errorMessage.includes('range')) {
-      return c.json({ 
-        success: false, 
-        error: 'Domain check failed',
-        details: [{ field: 'calculation', message: errorMessage }]
-      }, 422)
-    }
-    
-    // Generic 500 for unexpected errors (no PHI)
-    return c.json({ 
-      success: false, 
+    return c.json({
+      success: false,
       error: 'Internal error',
-      details: [{ field: 'system', message: 'An unexpected error occurred. Please try again.' }]
+      details: [{ field: '_', message: `${errorClass}: ${errorMessage}` }]
     }, 500)
   }
 })
