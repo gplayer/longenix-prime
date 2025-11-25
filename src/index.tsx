@@ -10863,17 +10863,7 @@ app.post('/api/assessment/comprehensive', async (c) => {
     }
     
     if (!validationResult.success) {
-      let errorResponse: any
-      try {
-        errorResponse = formatValidationError(validationResult.error)
-      } catch (formatError) {
-        // Fallback if error formatting fails
-        errorResponse = {
-          success: false,
-          error: 'Validation failed',
-          details: [{ field: 'unknown', message: 'Validation error occurred' }]
-        }
-      }
+      const errorResponse = formatValidationError(validationResult.error)
       logger.warn('Validation failed', { 
         route: '/api/assessment/comprehensive',
         error_count: validationResult.error?.errors?.length || 0
@@ -10932,12 +10922,12 @@ app.post('/api/assessment/comprehensive', async (c) => {
 
     const sessionId = sessionResult.meta.last_row_id
 
-    // Prepare patient data for medical algorithms
+    // Prepare patient data for medical algorithms with safe defaults for minimal payload
     const patientData = {
       age: age,
       gender: demo.gender as 'male' | 'female' | 'other',
-      height_cm: clinical.height || 170,
-      weight_kg: clinical.weight || 70,
+      height_cm: clinical.height || 170, // Default height if not provided
+      weight_kg: clinical.weight || 70,  // Default weight if not provided
       systolic_bp: clinical.systolicBP || 120,
       diastolic_bp: clinical.diastolicBP || 80,
       biomarkers: {
@@ -10961,22 +10951,44 @@ app.post('/api/assessment/comprehensive', async (c) => {
       }
     }
 
-    // Calculate all medical results
-    const biologicalAge = BiologicalAgeCalculator.calculateBiologicalAge(patientData)
-    const ascvdRisk = DiseaseRiskCalculator.calculateASCVDRisk(patientData)
-    const diabetesRisk = DiseaseRiskCalculator.calculateDiabetesRisk(patientData, {})
-    const kidneyRisk = DiseaseRiskCalculator.calculateKidneyDiseaseRisk(patientData)
-    const cancerRisk = DiseaseRiskCalculator.calculateCancerRisk(patientData, {})
-    const cognitiveRisk = DiseaseRiskCalculator.calculateCognitiveDeclineRisk(patientData, {})
-    const metabolicSyndromeRisk = DiseaseRiskCalculator.calculateMetabolicSyndromeRisk(patientData)
-    const strokeRisk = DiseaseRiskCalculator.calculateStrokeRisk(patientData, {})
+    // Calculate all medical results (wrapped with safe error handling)
+    let biologicalAge, ascvdRisk, diabetesRisk, kidneyRisk, cancerRisk, cognitiveRisk, metabolicSyndromeRisk, strokeRisk, agingAssessment
     
-    // Calculate aging assessment using the new HallmarksOfAgingCalculator
-    const agingAssessment = HallmarksOfAgingCalculator.calculateAgingAssessment(patientData)
+    try {
+      biologicalAge = BiologicalAgeCalculator.calculateBiologicalAge(patientData)
+      ascvdRisk = DiseaseRiskCalculator.calculateASCVDRisk(patientData)
+      diabetesRisk = DiseaseRiskCalculator.calculateDiabetesRisk(patientData, {})
+      kidneyRisk = DiseaseRiskCalculator.calculateKidneyDiseaseRisk(patientData)
+      cancerRisk = DiseaseRiskCalculator.calculateCancerRisk(patientData, {})
+      cognitiveRisk = DiseaseRiskCalculator.calculateCognitiveDeclineRisk(patientData, {})
+      metabolicSyndromeRisk = DiseaseRiskCalculator.calculateMetabolicSyndromeRisk(patientData)
+      strokeRisk = DiseaseRiskCalculator.calculateStrokeRisk(patientData, {})
+      agingAssessment = HallmarksOfAgingCalculator.calculateAgingAssessment(patientData)
+    } catch (calcError) {
+      const err = calcError as Error
+      logger.logError({
+        route: '/api/assessment/comprehensive',
+        error_name: 'CalculationError',
+        fingerprint: 'calc-fail',
+        stack_excerpt: err.message || 'Calculator error',
+        status: 422
+      })
+      return c.json({
+        success: false,
+        error: 'Calculation error',
+        details: [{ field: 'calculation', message: `Medical calculation failed: ${err.message}` }]
+      }, 422)
+    }
 
     // Store comprehensive assessment data as JSON
-    // Normalize ATM Framework data before storage
-    const normalizedAssessmentData = normalizeATMData(assessmentData)
+    // Normalize ATM Framework data before storage (may be minimal for basic payload)
+    let normalizedAssessmentData
+    try {
+      normalizedAssessmentData = normalizeATMData(assessmentData)
+    } catch (atmError) {
+      // For minimal payload, ATM data might not be complete - use raw data
+      normalizedAssessmentData = assessmentData
+    }
     
     await env.DB.prepare(`
       INSERT INTO assessment_data (session_id, data_type, json_data, created_at)

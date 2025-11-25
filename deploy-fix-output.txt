@@ -1,0 +1,9 @@
+Uploading... (10/10)
+✨ Success! Uploaded 0 files (10 already uploaded) (0.27 sec)
+
+✨ Compiled Worker successfully
+✨ Uploading Worker bundle
+✨ Uploading _routes.json
+🌎 Deploying...
+✨ Deployment complete! Take a peek over at https://c9f49940.longenix-prime.pages.dev
+✨ Deployment alias URL: https://fix-validation-paths-and-min.longenix-prime.pages.dev

@@ -43,6 +43,7 @@ export const AssessmentIntakeSchema = z.object({
 }).passthrough() // Allow additional fields for backwards compatibility
 
 // Normalize and sanitize validated data
+// For minimal payload, preserve optional fields as undefined/empty
 export function normalizeAssessmentData(data: z.infer<typeof AssessmentIntakeSchema>) {
   const demo = data.demographics
   const clinical = data.clinical || {}
@@ -58,10 +59,10 @@ export function normalizeAssessmentData(data: z.infer<typeof AssessmentIntakeSch
       phone: demo.phone?.trim() || '',
     },
     clinical: {
-      height: clinical.height || 170,
-      weight: clinical.weight || 70,
-      systolicBP: clinical.systolicBP || 120,
-      diastolicBP: clinical.diastolicBP || 80,
+      height: clinical.height,
+      weight: clinical.weight,
+      systolicBP: clinical.systolicBP,
+      diastolicBP: clinical.diastolicBP,
     },
     biomarkers: {
       glucose: biomarkers.glucose ?? null,
@@ -89,9 +90,13 @@ export function formatValidationError(error: z.ZodError) {
   return {
     success: false,
     error: 'Validation failed',
-    details: error.errors.map(err => ({
-      field: err.path.join('.'),
-      message: err.message,
-    })),
+    details: error.errors.map(err => {
+      // Ensure path is always an array and join with dots
+      const fieldPath = Array.isArray(err.path) ? err.path.join('.') : String(err.path || 'unknown')
+      return {
+        field: fieldPath,
+        message: err.message || 'Validation error',
+      }
+    }),
   }
 }
