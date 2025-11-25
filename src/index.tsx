@@ -10521,7 +10521,21 @@ app.post('/api/assessment/comprehensive', async (c) => {
   const startTime = Date.now()
   
   try {
-    const rawData = await c.req.json()
+    // Parse JSON with error handling
+    let rawData: any
+    try {
+      rawData = await c.req.json()
+    } catch (parseError) {
+      logger.warn('JSON parse error', { 
+        route: '/api/assessment/comprehensive',
+        error: 'Invalid JSON'
+      })
+      return c.json({
+        success: false,
+        error: 'Invalid JSON format',
+        details: [{ field: 'body', message: 'Request body must be valid JSON' }]
+      }, 400)
+    }
     
     // Server-side validation with Zod
     const validationResult = AssessmentIntakeSchema.safeParse(rawData)
@@ -10720,25 +10734,39 @@ app.post('/api/assessment/comprehensive', async (c) => {
   } catch (error) {
     // Log error with anonymized details
     const errorObj = error as Error
+    const errorMessage = errorObj.message || 'Unknown error'
+    
     logger.logError({
       route: '/api/assessment/comprehensive',
-      error_name: errorObj.name,
+      error_name: errorObj.name || 'Error',
       fingerprint: createErrorFingerprint(errorObj, '/api/assessment/comprehensive'),
       stack_excerpt: getStackExcerpt(errorObj),
       status: 500
     })
     
     // Handle specific database constraint errors
-    if (errorObj.message && errorObj.message.includes('UNIQUE constraint failed: patients.email')) {
+    if (errorMessage.includes('UNIQUE constraint failed: patients.email')) {
       return c.json({ 
         success: false, 
-        error: 'An assessment with this email address already exists. Please use a different email or contact support to access your existing assessment.'
-      }, 400)
+        error: 'Duplicate email address',
+        details: [{ field: 'demographics.email', message: 'An assessment with this email already exists' }]
+      }, 422)
     }
     
+    // Handle calculation/domain errors
+    if (errorMessage.includes('calculation') || errorMessage.includes('invalid') || errorMessage.includes('range')) {
+      return c.json({ 
+        success: false, 
+        error: 'Domain check failed',
+        details: [{ field: 'calculation', message: errorMessage }]
+      }, 422)
+    }
+    
+    // Generic 500 for unexpected errors (no PHI)
     return c.json({ 
       success: false, 
-      error: 'Failed to process comprehensive assessment. Please try again or contact support if the issue persists.'
+      error: 'Internal error',
+      details: [{ field: 'system', message: 'An unexpected error occurred. Please try again.' }]
     }, 500)
   }
 })

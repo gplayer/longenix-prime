@@ -11,16 +11,9 @@ export const AssessmentIntakeSchema = z.object({
     }, 'Invalid date of birth - must be between 18 and 120 years old'),
     gender: z.enum(['male', 'female', 'other']),
     ethnicity: z.string().optional(),
-    email: z.string().email().optional().or(z.literal('')),
+    email: z.string().email('Invalid email format').or(z.literal('')).optional(),
     phone: z.string().optional(),
-  }).or(z.object({
-    fullName: z.string().min(2).max(100),
-    dateOfBirth: z.string(),
-    gender: z.enum(['male', 'female', 'other']),
-    ethnicity: z.string().optional(),
-    email: z.string().optional(),
-    phone: z.string().optional(),
-  })),
+  }),
   
   clinical: z.object({
     height: z.number().min(50, 'Height must be at least 50 cm').max(300, 'Height cannot exceed 300 cm').optional(),
@@ -93,12 +86,9 @@ export function normalizeAssessmentData(data: z.infer<typeof AssessmentIntakeSch
 
 // Format validation errors for API response
 export function formatValidationError(error: z.ZodError) {
-  const firstError = error.errors[0]
   return {
     success: false,
     error: 'Validation failed',
-    field: firstError.path.join('.'),
-    message: firstError.message,
     details: error.errors.map(err => ({
       field: err.path.join('.'),
       message: err.message,
