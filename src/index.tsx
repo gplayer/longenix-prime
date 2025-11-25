@@ -5,7 +5,13 @@ import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalcula
 
 type Bindings = {
   DB: D1Database;
+  BASIC_AUTH_USER: string;
+  BASIC_AUTH_PASS: string;
+  DRY_RUN: string;
 }
+
+// PREVIEW: Allowed tenant identifiers
+const ALLOWED_TENANTS = ['demo-a', 'demo-b', 'demo-c']
 
 // Helper function to validate biomarker ranges with gender awareness
 const validateBiomarkerValue = (value: number, range: string, gender?: string) => {
@@ -851,6 +857,68 @@ const app = new Hono<{ Bindings: Bindings }>()
 // Enable CORS for API routes
 app.use('/api/*', cors())
 
+// PREVIEW: Basic Auth middleware for all API routes
+app.use('/api/*', async (c, next) => {
+  const { env } = c
+  const authHeader = c.req.header('Authorization')
+  
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    return c.text('Unauthorized', 401, {
+      'WWW-Authenticate': 'Basic realm="LonGenix API"'
+    })
+  }
+  
+  try {
+    const base64Credentials = authHeader.substring(6)
+    const credentials = atob(base64Credentials)
+    const [username, password] = credentials.split(':')
+    
+    const validUser = env.BASIC_AUTH_USER || 'admin'
+    const validPass = env.BASIC_AUTH_PASS || 'password'
+    
+    if (username !== validUser || password !== validPass) {
+      return c.text('Unauthorized', 401, {
+        'WWW-Authenticate': 'Basic realm="LonGenix API"'
+      })
+    }
+    
+    await next()
+  } catch (error) {
+    return c.text('Unauthorized', 401, {
+      'WWW-Authenticate': 'Basic realm="LonGenix API"'
+    })
+  }
+})
+
+// PREVIEW: Tenant middleware for assessment endpoints
+app.use('/api/assessment/*', async (c, next) => {
+  // Extract tenant from header or query param
+  const tenantFromHeader = c.req.header('X-Tenant-ID')
+  const tenantFromQuery = c.req.query('tenant')
+  const tenant = tenantFromHeader || tenantFromQuery
+  
+  // Validate tenant
+  if (!tenant) {
+    return c.json({
+      success: false,
+      error: 'Validation failed',
+      details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+    }, 400)
+  }
+  
+  if (!ALLOWED_TENANTS.includes(tenant)) {
+    return c.json({
+      success: false,
+      error: 'Validation failed',
+      details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+    }, 400)
+  }
+  
+  // Set tenant in context for downstream handlers
+  c.set('tenant', tenant)
+  await next()
+})
+
 // Serve static files
 app.use('/css/*', serveStatic())
 app.use('/js/*', serveStatic())
@@ -875,6 +943,39 @@ app.post('/api/auth/login', async (c) => {
       error: 'Invalid credentials' 
     }, 401)
   }
+})
+
+// PREVIEW: Tenant endpoints
+app.get('/api/tenants', async (c) => {
+  return c.json({
+    tenants: ALLOWED_TENANTS
+  })
+})
+
+app.get('/api/tenants/validate', async (c) => {
+  const tenant = c.req.query('tenant')
+  
+  if (!tenant) {
+    return c.json({
+      success: false,
+      error: 'Validation failed',
+      details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+    }, 400)
+  }
+  
+  if (!ALLOWED_TENANTS.includes(tenant)) {
+    return c.json({
+      success: false,
+      error: 'Validation failed',
+      details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+    }, 400)
+  }
+  
+  return c.json({
+    success: true,
+    tenant: tenant,
+    valid: true
+  })
 })
 
 // Dynamic report route
@@ -5472,6 +5573,9 @@ app.post('/api/assessment/comprehensive', async (c) => {
   const { env } = c
   const assessmentData = await c.req.json()
   
+  // PREVIEW: Check DRY_RUN mode (default true in preview)
+  const dryRun = (env.DRY_RUN || 'true').toLowerCase() === 'true'
+  
   try {
     // Enhanced data validation and structure handling
     const demo = assessmentData.demographics || assessmentData
@@ -5490,6 +5594,19 @@ app.post('/api/assessment/comprehensive', async (c) => {
     // Calculate age from date of birth (consistent with other endpoints)
     const birthDate = new Date(demo.dateOfBirth)
     const age = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    
+    // PREVIEW: DRY_RUN mode - skip DB writes and calculators, return synthetic success
+    if (dryRun) {
+      const tenant = c.get('tenant')
+      return c.json({
+        success: true,
+        sessionId: 999001,
+        patientId: 888001,
+        tenant: tenant,
+        dryRun: true,
+        message: 'DRY_RUN mode: No data written, no calculators executed'
+      })
+    }
     
     const patientResult = await env.DB.prepare(`
       INSERT INTO patients (full_name, date_of_birth, gender, ethnicity, email, phone, country)
@@ -5675,6 +5792,23 @@ app.post('/api/assessment/comprehensive', async (c) => {
 app.post('/api/assessment/demo', async (c) => {
   const { env } = c
   const { country, demoType } = await c.req.json()
+  
+  // PREVIEW: Check DRY_RUN mode (default true in preview)
+  const dryRun = (env.DRY_RUN || 'true').toLowerCase() === 'true'
+  
+  // PREVIEW: DRY_RUN mode - skip DB writes and calculators, return synthetic success
+  if (dryRun) {
+    const tenant = c.get('tenant')
+    return c.json({
+      success: true,
+      sessionId: 999001,
+      patientId: 888001,
+      tenant: tenant,
+      dryRun: true,
+      demoType: demoType || 'usa_optimal',
+      message: 'DRY_RUN mode: No data written, no calculators executed'
+    })
+  }
   
   try {
     // Medical algorithms are imported at the top
