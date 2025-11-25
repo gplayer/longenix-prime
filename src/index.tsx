@@ -2,6 +2,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalculator, HealthOptimizationCalculator } from './medical-algorithms'
+import { AssessmentIntakeSchema, normalizeAssessmentData, formatValidationError } from './validation'
+import { logger, createErrorFingerprint, getStackExcerpt } from './logger'
+import { ZodError } from 'zod'
 
 type Bindings = {
   DB: D1Database;
@@ -11,6 +14,7 @@ type Bindings = {
   MAIL_ENABLED?: string;
   CF_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
+  LOG_LEVEL?: string;
 }
 
 // Helper function to calculate age from date of birth
@@ -1584,6 +1588,36 @@ function analyzeFunctionalMedicineSystem(systemId: string, systemName: string, s
     interventions,
     systemOptimization,
     functionalMedicineApproach: `${systemName} dysfunction requires a root-cause approach addressing upstream factors rather than symptom suppression. Focus on identifying and correcting underlying imbalances through comprehensive testing and targeted interventions.`
+  }
+}
+
+// Fail-safe section renderer - prevents entire report failure if one section crashes
+function renderSectionSafely(sectionName: string, renderFn: () => string): string {
+  try {
+    return renderFn()
+  } catch (error) {
+    const errorObj = error as Error
+    logger.warn(`Report section failed: ${sectionName}`, {
+      section: sectionName,
+      error: errorObj.message
+    })
+    
+    return `
+      <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-yellow-700">
+              <strong>⚠ Section unavailable:</strong> ${sectionName} could not be rendered. This has been logged for review.
+            </p>
+          </div>
+        </div>
+      </div>
+    `
   }
 }
 
@@ -10484,22 +10518,28 @@ app.get('/api/test/atm-timeline', async (c) => {
 // API endpoint to process comprehensive assessment
 app.post('/api/assessment/comprehensive', async (c) => {
   const { env } = c
-  const assessmentData = await c.req.json()
+  const startTime = Date.now()
   
   try {
-    // Enhanced data validation and structure handling
-    const demo = assessmentData.demographics || assessmentData
-    const clinical = assessmentData.clinical || assessmentData
-    const biomarkers = assessmentData.biomarkers || assessmentData
+    const rawData = await c.req.json()
     
-    // Validate required demographics data
-    if (!demo.fullName || !demo.dateOfBirth || !demo.gender) {
-      return c.json({
-        success: false,
-        error: 'Missing required demographic data (fullName, dateOfBirth, gender)',
-        received: Object.keys(assessmentData)
-      }, 400)
+    // Server-side validation with Zod
+    const validationResult = AssessmentIntakeSchema.safeParse(rawData)
+    
+    if (!validationResult.success) {
+      const errorResponse = formatValidationError(validationResult.error)
+      logger.warn('Validation failed', { 
+        route: '/api/assessment/comprehensive',
+        error_count: validationResult.error.errors.length 
+      })
+      return c.json(errorResponse, 400)
     }
+    
+    // Normalize validated data
+    const assessmentData = normalizeAssessmentData(validationResult.data)
+    const demo = assessmentData.demographics
+    const clinical = assessmentData.clinical
+    const biomarkers = assessmentData.biomarkers
     
     // Calculate age from date of birth (consistent with other endpoints)
     const birthDate = new Date(demo.dateOfBirth)
@@ -10660,6 +10700,16 @@ app.post('/api/assessment/comprehensive', async (c) => {
       ).run()
     }
 
+    // Log successful request
+    const duration = Date.now() - startTime
+    logger.logRequest({
+      route: '/api/assessment/comprehensive',
+      method: 'POST',
+      duration_ms: duration,
+      rows_returned: 1,
+      status: 200
+    })
+    
     return c.json({ 
       success: true, 
       sessionId: sessionId,
@@ -10668,10 +10718,18 @@ app.post('/api/assessment/comprehensive', async (c) => {
     })
 
   } catch (error) {
-    console.error('Comprehensive assessment error:', error)
+    // Log error with anonymized details
+    const errorObj = error as Error
+    logger.logError({
+      route: '/api/assessment/comprehensive',
+      error_name: errorObj.name,
+      fingerprint: createErrorFingerprint(errorObj, '/api/assessment/comprehensive'),
+      stack_excerpt: getStackExcerpt(errorObj),
+      status: 500
+    })
     
     // Handle specific database constraint errors
-    if (error.message && error.message.includes('UNIQUE constraint failed: patients.email')) {
+    if (errorObj.message && errorObj.message.includes('UNIQUE constraint failed: patients.email')) {
       return c.json({ 
         success: false, 
         error: 'An assessment with this email address already exists. Please use a different email or contact support to access your existing assessment.'
