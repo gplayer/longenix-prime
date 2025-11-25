@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalculator, HealthOptimizationCalculator } from './medical-algorithms'
+import { echoPayload, validateDemoPayload, devLog } from './dev/scratchpad'
 
 type Bindings = {
   DB: D1Database;
@@ -976,6 +977,125 @@ app.get('/api/tenants/validate', async (c) => {
     tenant: tenant,
     valid: true
   })
+})
+
+// PREVIEW: Dev/Sandbox endpoints for safe experimentation
+// GET /api/dev/status - Returns development environment status (no tenant required)
+app.get('/api/dev/status', async (c) => {
+  const { env } = c
+  
+  // Get tenant if provided (optional for status endpoint)
+  const tenant = c.req.header('X-Tenant-ID') || c.req.query('tenant') || null
+  
+  // Get DRY_RUN status
+  const dryRun = (env.DRY_RUN || 'true').toLowerCase() === 'true'
+  
+  return c.json({
+    ok: true,
+    env: 'preview',
+    dryRun: dryRun,
+    tenant: tenant,
+    time: new Date().toISOString()
+  })
+})
+
+// PREVIEW: Tenant middleware for /api/dev/try endpoint
+app.use('/api/dev/try', async (c, next) => {
+  // Extract tenant from header or query param
+  const tenantFromHeader = c.req.header('X-Tenant-ID')
+  const tenantFromQuery = c.req.query('tenant')
+  const tenant = tenantFromHeader || tenantFromQuery
+  
+  // Validate tenant
+  if (!tenant) {
+    return c.json({
+      success: false,
+      error: 'Validation failed',
+      details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+    }, 400)
+  }
+  
+  if (!ALLOWED_TENANTS.includes(tenant)) {
+    return c.json({
+      success: false,
+      error: 'Validation failed',
+      details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+    }, 400)
+  }
+  
+  // Set tenant in context for downstream handlers
+  c.set('tenant', tenant)
+  await next()
+})
+
+// POST /api/dev/try - Try a demo request with tenant validation
+app.post('/api/dev/try', async (c) => {
+  const { env } = c
+  
+  try {
+    // Read and parse JSON body
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'body', message: 'Could not read request body' }]
+      }, 400)
+    }
+    
+    let body: any
+    try {
+      body = JSON.parse(rawText)
+    } catch (parseError) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'body', message: 'Request body must be valid JSON' }]
+      }, 400)
+    }
+    
+    // Validate payload using scratchpad helper
+    const validation = validateDemoPayload(body)
+    if (!validation.valid) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: validation.errors
+      }, 400)
+    }
+    
+    // Get tenant from context (set by tenant middleware)
+    const tenant = c.get('tenant')
+    
+    // Get DRY_RUN status
+    const dryRun = (env.DRY_RUN || 'true').toLowerCase() === 'true'
+    
+    // Use the scratchpad helper to echo payload
+    const echo = echoPayload({ demo: body.demo, note: body.note })
+    
+    // Log for development (safe - no DB write)
+    devLog('POST /api/dev/try', { tenant, body, dryRun })
+    
+    // Return success with echo
+    return c.json({
+      ok: true,
+      tenant: tenant,
+      echo: echo.received,
+      dryRun: dryRun,
+      timestamp: echo.timestamp
+    })
+    
+  } catch (error) {
+    // Catch-all error handler
+    const err = error as Error
+    return c.json({
+      success: false,
+      error: 'Internal error',
+      details: [{ field: '_', message: err.message || 'Unknown error' }]
+    }, 500)
+  }
 })
 
 // Dynamic report route
