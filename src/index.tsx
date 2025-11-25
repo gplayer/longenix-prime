@@ -1093,6 +1093,264 @@ app.get('/api/ping', async (c) => {
   })
 })
 
+// Echo endpoint for debugging - returns exactly what was received
+app.post('/api/echo', async (c) => {
+  const contentType = c.req.header('Content-Type') || 'unknown'
+  const rawText = await c.req.text()
+  
+  return c.json({
+    receivedText: rawText,
+    contentType: contentType,
+    length: rawText.length,
+    timestamp: new Date().toISOString()
+  })
+})
+
+// Debug Console - Browser-based API testing interface
+app.get('/debug/console', (c) => {
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Debug Console - LongenixPrime</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .response-success { border-left: 4px solid #10b981; }
+    .response-error { border-left: 4px solid #ef4444; }
+    .response-warning { border-left: 4px solid #f59e0b; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+  <div class="container mx-auto px-4 py-8 max-w-6xl">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-white mb-2">🔧 API Debug Console</h1>
+      <p class="text-gray-400">Preview Environment - Test API endpoints without curl/PowerShell quoting issues</p>
+    </div>
+
+    <!-- Endpoint Selection -->
+    <div class="bg-gray-800 rounded-lg p-6 mb-6">
+      <label class="block text-sm font-medium mb-2">Endpoint</label>
+      <select id="endpoint" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
+        <option value="/api/assessment/comprehensive">POST /api/assessment/comprehensive</option>
+        <option value="/api/echo">POST /api/echo</option>
+        <option value="/api/ping">GET /api/ping</option>
+      </select>
+    </div>
+
+    <!-- Example Payloads -->
+    <div class="bg-gray-800 rounded-lg p-6 mb-6">
+      <label class="block text-sm font-medium mb-2">Quick Load Examples</label>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="loadExample('invalid-name')" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm">
+          ❌ Invalid: Short Name
+        </button>
+        <button onclick="loadExample('invalid-weight')" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm">
+          ❌ Invalid: Huge Weight
+        </button>
+        <button onclick="loadExample('valid')" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm">
+          ✅ Valid: Minimal Payload
+        </button>
+        <button onclick="loadExample('echo')" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">
+          🔊 Echo Test
+        </button>
+      </div>
+    </div>
+
+    <!-- Request Body -->
+    <div class="bg-gray-800 rounded-lg p-6 mb-6">
+      <label class="block text-sm font-medium mb-2">Request Body (JSON)</label>
+      <textarea id="requestBody" rows="12" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white font-mono text-sm" placeholder="Enter JSON payload..."></textarea>
+      <div class="mt-2 flex gap-2">
+        <button onclick="sendRequest()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded font-medium">
+          🚀 Send Request
+        </button>
+        <button onclick="clearResponse()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">
+          Clear Response
+        </button>
+        <button onclick="formatJSON()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">
+          Format JSON
+        </button>
+      </div>
+    </div>
+
+    <!-- Response -->
+    <div id="responseContainer" class="hidden">
+      <div class="bg-gray-800 rounded-lg p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">Response</h2>
+          <span id="statusBadge" class="px-3 py-1 rounded text-sm font-medium"></span>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2 text-gray-400">Status</label>
+          <div id="statusLine" class="bg-gray-700 rounded px-3 py-2 font-mono text-sm"></div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-2 text-gray-400">Response Body</label>
+          <pre id="responseBody" class="bg-gray-700 rounded px-3 py-2 font-mono text-sm overflow-x-auto whitespace-pre-wrap"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const examples = {
+      'invalid-name': {
+        endpoint: '/api/assessment/comprehensive',
+        body: {
+          "demographics": {
+            "fullName": "J",
+            "dateOfBirth": "1980-01-15",
+            "gender": "male"
+          }
+        }
+      },
+      'invalid-weight': {
+        endpoint: '/api/assessment/comprehensive',
+        body: {
+          "demographics": {
+            "fullName": "Jane Doe",
+            "dateOfBirth": "1985-03-20",
+            "gender": "female"
+          },
+          "clinical": {
+            "weight": 5000
+          }
+        }
+      },
+      'valid': {
+        endpoint: '/api/assessment/comprehensive',
+        body: {
+          "demographics": {
+            "fullName": "John Test",
+            "dateOfBirth": "1980-05-15",
+            "gender": "male",
+            "email": "test" + Date.now() + "@example.com"
+          }
+        }
+      },
+      'echo': {
+        endpoint: '/api/echo',
+        body: {
+          "test": "This is a test message",
+          "timestamp": new Date().toISOString()
+        }
+      }
+    };
+
+    function loadExample(exampleKey) {
+      const example = examples[exampleKey];
+      document.getElementById('endpoint').value = example.endpoint;
+      document.getElementById('requestBody').value = JSON.stringify(example.body, null, 2);
+    }
+
+    function formatJSON() {
+      try {
+        const text = document.getElementById('requestBody').value;
+        const parsed = JSON.parse(text);
+        document.getElementById('requestBody').value = JSON.stringify(parsed, null, 2);
+      } catch (e) {
+        alert('Invalid JSON: ' + e.message);
+      }
+    }
+
+    function clearResponse() {
+      document.getElementById('responseContainer').classList.add('hidden');
+    }
+
+    async function sendRequest() {
+      const endpoint = document.getElementById('endpoint').value;
+      const bodyText = document.getElementById('requestBody').value;
+      
+      const startTime = Date.now();
+      
+      try {
+        const options = {
+          method: endpoint.includes('/ping') ? 'GET' : 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        };
+        
+        if (options.method === 'POST') {
+          options.body = bodyText;
+        }
+        
+        const response = await fetch(endpoint, options);
+        const duration = Date.now() - startTime;
+        
+        let responseBody;
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          responseBody = await response.json();
+        } else {
+          responseBody = await response.text();
+        }
+        
+        // Display response
+        displayResponse(response.status, response.statusText, responseBody, duration);
+        
+      } catch (error) {
+        displayResponse(0, 'Network Error', { error: error.message }, 0);
+      }
+    }
+
+    function displayResponse(status, statusText, body, duration) {
+      const container = document.getElementById('responseContainer');
+      const statusBadge = document.getElementById('statusBadge');
+      const statusLine = document.getElementById('statusLine');
+      const responseBody = document.getElementById('responseBody');
+      
+      container.classList.remove('hidden');
+      
+      // Status badge
+      let badgeClass = 'bg-gray-600';
+      let badgeText = status;
+      
+      if (status >= 200 && status < 300) {
+        badgeClass = 'bg-green-600';
+        badgeText = status + ' ✓';
+      } else if (status >= 400 && status < 500) {
+        badgeClass = 'bg-yellow-600';
+        badgeText = status + ' ⚠';
+      } else if (status >= 500) {
+        badgeClass = 'bg-red-600';
+        badgeText = status + ' ✗';
+      }
+      
+      statusBadge.className = 'px-3 py-1 rounded text-sm font-medium ' + badgeClass;
+      statusBadge.textContent = badgeText;
+      
+      // Status line
+      statusLine.textContent = 'HTTP/2 ' + status + ' ' + statusText + ' (' + duration + 'ms)';
+      
+      // Response body
+      if (typeof body === 'object') {
+        responseBody.textContent = JSON.stringify(body, null, 2);
+      } else {
+        responseBody.textContent = body;
+      }
+      
+      // Scroll to response
+      container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Load first example on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadExample('invalid-name');
+    });
+  </script>
+</body>
+</html>
+  `;
+  
+  return c.html(html)
+})
+
 // Preview redirect endpoint - redirects to latest preview deployment
 app.get('/preview', async (c) => {
   const accountId = c.env.CF_ACCOUNT_ID
@@ -10534,20 +10792,53 @@ app.post('/api/assessment/comprehensive', async (c) => {
   try {
     const { env } = c
     
+    // Validate Content-Type (accept both application/json and text/json, tolerate missing charset)
+    const contentType = c.req.header('Content-Type') || ''
+    const isValidContentType = contentType.includes('application/json') || contentType.includes('text/json')
+    
+    if (!isValidContentType && contentType !== '') {
+      return c.json({
+        success: false,
+        error: 'Invalid Content-Type',
+        details: [{ 
+          field: 'Content-Type', 
+          message: `Expected application/json or text/json, got: ${contentType}` 
+        }]
+      }, 400)
+    }
+    
     // Parse JSON with error handling
+    // First, capture the raw text for better error reporting
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (textError) {
+      return c.json({
+        success: false,
+        error: 'Failed to read request body',
+        details: [{ field: 'body', message: 'Could not read request body as text' }]
+      }, 400)
+    }
+    
+    // Now parse the raw text as JSON
     let rawData: any
     try {
-      rawData = await c.req.json()
+      rawData = JSON.parse(rawText)
     } catch (parseError) {
       const parseErr = parseError as Error
+      const snippet = rawText.substring(0, 80)
       logger.warn('JSON parse error', { 
         route: '/api/assessment/comprehensive',
-        error: parseErr.message || 'Invalid JSON'
+        error: parseErr.message || 'Invalid JSON',
+        snippet_length: snippet.length
       })
       return c.json({
         success: false,
         error: 'Invalid JSON format',
-        details: [{ field: 'body', message: 'Request body must be valid JSON' }]
+        details: [{ 
+          field: 'body', 
+          message: `Request body must be valid JSON. Starts with: ${snippet}` 
+        }]
       }, 400)
     }
     
