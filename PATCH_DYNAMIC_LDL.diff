@@ -1,0 +1,179 @@
+diff --git a/src/index.tsx b/src/index.tsx
+index 1a9bb7a..9d9c882 100644
+--- a/src/index.tsx
++++ b/src/index.tsx
+@@ -1186,6 +1186,135 @@ app.get('/report', async (c) => {
+ 
+     // Helper functions for dynamic content generation
+ 
++    // PREVIEW FEATURE FLAG: Dynamic LDL Block Personalization
++    const PREVIEW_DYNAMIC_LDL = true
++
++    // Helper: Extract LDL value from comprehensiveData (probe multiple keys)
++    function getLDLValue(): number | null {
++      if (!comprehensiveData) return null
++      
++      // Probe common LDL keys in order of preference
++      const ldlKeys = ['ldlCholesterol', 'ldl_cholesterol', 'ldl', 'ldl_c', 'LDL']
++      
++      // Check biomarkers object first
++      if (comprehensiveData.biomarkers) {
++        for (const key of ldlKeys) {
++          const value = comprehensiveData.biomarkers[key]
++          if (value != null && !isNaN(Number(value))) {
++            return Number(value)
++          }
++        }
++      }
++      
++      // Check clinical object
++      if (comprehensiveData.clinical) {
++        for (const key of ldlKeys) {
++          const value = comprehensiveData.clinical[key]
++          if (value != null && !isNaN(Number(value))) {
++            return Number(value)
++          }
++        }
++      }
++      
++      // Check root level
++      for (const key of ldlKeys) {
++        const value = comprehensiveData[key]
++        if (value != null && !isNaN(Number(value))) {
++          return Number(value)
++        }
++      }
++      
++      return null
++    }
++
++    // Helper: Extract ASCVD 10-year risk from risks array
++    function getASCVDRisk(): number | null {
++      if (!risks || !risks.results || risks.results.length === 0) return null
++      
++      // Find cardiovascular risk entry
++      const cvdRisk = risks.results.find((r: any) => 
++        r.category === 'cardiovascular' || r.category === 'ascvd' || r.category === 'cvd'
++      )
++      
++      if (!cvdRisk) return null
++      
++      // Try to extract numeric risk score (typically 0-1 range representing percentage)
++      if (cvdRisk.risk_score != null && !isNaN(Number(cvdRisk.risk_score))) {
++        return Number(cvdRisk.risk_score)
++      }
++      
++      // Fallback: map risk_level to proxy numeric value
++      const riskLevelMap: Record<string, number> = {
++        'low': 0.05,
++        'moderate': 0.10,
++        'high': 0.15,
++        'very_high': 0.25
++      }
++      
++      return riskLevelMap[cvdRisk.risk_level] || null
++    }
++
++    // Helper: Generate dynamic LDL recommendation card (Preview)
++    function generateDynamicLDLCard(): string {
++      if (!PREVIEW_DYNAMIC_LDL) return ''
++      
++      const ldlValue = getLDLValue()
++      const ascvdRisk = getASCVDRisk()
++      
++      // Gate: Show card ONLY if LDL > 100 OR ASCVD risk >= 7.5%
++      const shouldShow = ldlValue != null && (ldlValue > 100 || (ascvdRisk != null && ascvdRisk >= 0.075))
++      
++      if (!shouldShow) return ''
++      
++      // Compute dynamic target based on ASCVD risk
++      let ldlTarget = 130 // Default for low risk
++      if (ascvdRisk != null) {
++        if (ascvdRisk >= 0.20) {
++          ldlTarget = 70  // Very high risk: <70 mg/dL
++        } else if (ascvdRisk >= 0.075) {
++          ldlTarget = 100 // Moderate-high risk: <100 mg/dL
++        }
++      }
++      
++      return `
++              <section data-test="ldl-card" class="bg-white rounded-lg p-4 border border-red-200">
++                  <div class="flex items-start">
++                      <div class="bg-red-100 p-2 rounded-full mr-4 mt-1">
++                          <i class="fas fa-heartbeat text-red-600"></i>
++                      </div>
++                      <div class="flex-1">
++                          <h4 class="font-semibold text-gray-800 mb-2">LDL Cholesterol Optimization <span class="text-xs text-blue-600">(Preview dynamic)</span></h4>
++                          <p class="text-sm text-gray-600 mb-3">
++                              Current LDL: <strong>${Math.round(ldlValue)} mg/dL</strong> | 
++                              Target LDL: <strong>&lt;${ldlTarget} mg/dL</strong>
++                              <span class="text-xs italic">(target depends on overall ASCVD risk)</span>
++                          </p>
++                          <div class="grid md:grid-cols-2 gap-4">
++                              <div>
++                                  <p class="text-sm font-medium text-gray-700 mb-2">Nutritional Interventions:</p>
++                                  <ul class="text-xs text-gray-600 space-y-1">
++                                      <li>• Increase soluble fiber intake (oats, beans, apples)</li>
++                                      <li>• Add plant sterols/stanols</li>
++                                      <li>• Replace saturated fats with monounsaturated fats</li>
++                                      <li>• Include fatty fish 2-3 times per week</li>
++                                  </ul>
++                              </div>
++                              <div>
++                                  <p class="text-sm font-medium text-gray-700 mb-2">Options to Discuss with Your Clinician:</p>
++                                  <ul class="text-xs text-gray-600 space-y-1">
++                                      <li>• Bergamot extract</li>
++                                      <li>• Psyllium husk fiber</li>
++                                      <li>• Omega-3 fatty acids (EPA/DHA)</li>
++                                      <li>• Lifestyle optimization strategies</li>
++                                  </ul>
++                                  <p class="text-xs text-gray-500 italic mt-2">Note: Dosing and suitability vary by individual health status.</p>
++                              </div>
++                          </div>
++                      </div>
++                  </div>
++              </section>
++      `
++    }
+ 
+     function generateFunctionalMedicineSection() {
+       if (!comprehensiveData) {
+@@ -3577,37 +3706,7 @@ app.get('/report', async (c) => {
+                               <i class="fas fa-exclamation-circle mr-2"></i>High Priority Interventions
+                           </h3>
+                           <div class="space-y-6">
+-                              <div class="bg-white rounded-lg p-4 border border-red-200">
+-                                  <div class="flex items-start">
+-                                      <div class="bg-red-100 p-2 rounded-full mr-4 mt-1">
+-                                          <i class="fas fa-heartbeat text-red-600"></i>
+-                                      </div>
+-                                      <div class="flex-1">
+-                                          <h4 class="font-semibold text-gray-800 mb-2">LDL Cholesterol Optimization</h4>
+-                                          <p class="text-sm text-gray-600 mb-3">Current: 115 mg/dL | Target: &lt;100 mg/dL</p>
+-                                          <div class="grid md:grid-cols-2 gap-4">
+-                                              <div>
+-                                                  <p class="text-sm font-medium text-gray-700 mb-2">Nutritional Interventions:</p>
+-                                                  <ul class="text-xs text-gray-600 space-y-1">
+-                                                      <li>• Increase soluble fiber intake (oats, beans, apples)</li>
+-                                                      <li>• Add plant sterols/stanols (2g daily)</li>
+-                                                      <li>• Replace saturated fats with monounsaturated fats</li>
+-                                                      <li>• Include fatty fish 2-3 times per week</li>
+-                                                  </ul>
+-                                              </div>
+-                                              <div>
+-                                                  <p class="text-sm font-medium text-gray-700 mb-2">Supplements to Consider:</p>
+-                                                  <ul class="text-xs text-gray-600 space-y-1">
+-                                                      <li>• Red yeast rice (consult physician)</li>
+-                                                      <li>• Bergamot extract (500-1000mg daily)</li>
+-                                                      <li>• Psyllium husk (5-10g daily)</li>
+-                                                      <li>• Omega-3 EPA/DHA (2-3g daily)</li>
+-                                                  </ul>
+-                                              </div>
+-                                          </div>
+-                                      </div>
+-                                  </div>
+-                              </div>
++                              ${generateDynamicLDLCard()}
+ 
+                               <div class="bg-white rounded-lg p-4 border border-red-200">
+                                   <div class="flex items-start">
