@@ -3,6 +3,12 @@ import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalculator, HealthOptimizationCalculator } from './medical-algorithms'
 import { echoPayload, validateDemoPayload, devLog } from './dev/scratchpad'
+import { 
+  extractVitaminDValue,
+  extractVitaminDValueFromComprehensiveData,
+  buildVitaminDCardResult,
+  type VitaminDCardResult
+} from './vitaminD-dynamic'
 
 type Bindings = {
   DB: D1Database;
@@ -13,6 +19,9 @@ type Bindings = {
 
 // PREVIEW: Allowed tenant identifiers
 const ALLOWED_TENANTS = ['demo-a', 'demo-b', 'demo-c']
+
+// PREVIEW FEATURE FLAG: Dynamic Vitamin D Block Personalization (Fix Pack #2)
+const PREVIEW_DYNAMIC_VITAMIN_D = true
 
 // Helper function to validate biomarker ranges with gender awareness
 const validateBiomarkerValue = (value: number, range: string, gender?: string) => {
@@ -1098,6 +1107,122 @@ app.post('/api/dev/try', async (c) => {
   }
 })
 
+// ========== PREVIEW: Vitamin D Dynamic Helpers (Fix Pack #2) ==========
+// Note: Actual helper functions are defined inside the report route
+// where they have access to comprehensiveData. See generateDynamicVitaminDCard() below.
+
+// PREVIEW: Vitamin D Probe Endpoint (Dynamic Fix Pack #2)
+// Route: POST /api/report/preview/vitaminD
+// Auth: Basic Auth (same as other endpoints)
+// Tenant: X-Tenant-ID required
+// Purpose: Test Vitamin D dynamic tiering logic with custom data
+// SAFETY: NO DB WRITES - returns JSON analysis only
+app.post('/api/report/preview/vitaminD', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `vitd-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
+  try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    // Log warning if DB binding present but don't fail (allows local dev/preview)
+    const { env } = c
+    if (env.DB) {
+      console.warn(`[${fingerprint}] ⚠️  DB binding present - probe will not access DB`)
+    }
+    
+    // Extract tenant from header or query param
+    const tenantFromHeader = c.req.header('X-Tenant-ID')
+    const tenantFromQuery = c.req.query('tenant')
+    const tenant = tenantFromHeader || tenantFromQuery
+    
+    // Validate tenant
+    if (!tenant) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+      }, 400)
+    }
+    
+    if (!ALLOWED_TENANTS.includes(tenant)) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Invalid tenant' }]
+      }, 400)
+    }
+    
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
+      }
+    }
+    
+    // Validate shape: biomarkers must be object if present
+    if (body.biomarkers !== undefined && (typeof body.biomarkers !== 'object' || body.biomarkers === null || Array.isArray(body.biomarkers))) {
+      console.error(`[${fingerprint}] Invalid biomarkers shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - biomarkers must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    // Extract Vitamin D value using shared helper
+    const vitaminDValue = extractVitaminDValue(body.biomarkers)
+    
+    // Build card result using shared helper
+    const cardResult = buildVitaminDCardResult(vitaminDValue)
+    
+    // Log for debugging (safe - no PHI, no DB)
+    console.log(`[${fingerprint}] Vitamin D probe: tenant=${tenant}, vitaminD=${vitaminDValue}, status=${cardResult.status}, shown=${cardResult.shown}`)
+    
+    // Return success with card data
+    return c.json({
+      success: true,
+      shown: cardResult.shown,
+      vitaminDValue: cardResult.vitaminDValue,
+      status: cardResult.status,
+      html: cardResult.html,
+      fingerprint: fingerprint
+    })
+    
+  } catch (error) {
+    // Catch-all error handler
+    const err = error as Error
+    console.error(`[${fingerprint}] Unexpected error in Vitamin D probe: ${err.message}`)
+    return c.json({
+      success: false,
+      error: 'Probe failed',
+      details: [{ field: '_', message: 'Unexpected error' }],
+      fingerprint: fingerprint
+    }, 500)
+  }
+})
+
 // Dynamic report route
 app.get('/report', async (c) => {
   const { env } = c
@@ -1437,6 +1562,35 @@ app.get('/report', async (c) => {
           </div>
         `
       }).join('')
+    }
+
+    // ========== Vitamin D Dynamic Card (Fix Pack #2) ==========
+    
+    /**
+     * Extract Vitamin D value from comprehensive data
+     * Uses the shared helper from vitaminD-dynamic.ts
+     */
+    function getVitaminDValue(): number | null {
+      if (!PREVIEW_DYNAMIC_VITAMIN_D) return null
+      if (!comprehensiveData) return null
+      
+      // Use the imported shared helper
+      return extractVitaminDValueFromComprehensiveData(comprehensiveData)
+    }
+    
+    /**
+     * Generate dynamic Vitamin D card
+     * Returns HTML or empty string based on data availability and feature flag
+     */
+    function generateDynamicVitaminDCard(): string {
+      if (!PREVIEW_DYNAMIC_VITAMIN_D) return ''
+      
+      const vitaminDValue = getVitaminDValue()
+      
+      // Use shared helper to build card
+      const cardResult = buildVitaminDCardResult(vitaminDValue)
+      
+      return cardResult.shown ? cardResult.html : ''
     }
 
     function generateATMSection() {
@@ -3836,15 +3990,7 @@ app.get('/report', async (c) => {
                                                   <li>• Regular aerobic exercise</li>
                                               </ul>
                                           </div>
-                                          <div>
-                                              <p class="font-medium">Vitamin D Optimization:</p>
-                                              <ul class="ml-4 mt-1 text-xs space-y-1">
-                                                  <li>• D3 supplementation 4000 IU daily</li>
-                                                  <li>• Take with fat-containing meal</li>
-                                                  <li>• Retest in 8-12 weeks</li>
-                                                  <li>• Consider K2 co-supplementation</li>
-                                              </ul>
-                                          </div>
+                                          ${generateDynamicVitaminDCard()}
                                       </div>
                                   </div>
                               </div>
