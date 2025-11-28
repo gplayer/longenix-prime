@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalculator, HealthOptimizationCalculator } from './medical-algorithms'
+import { extractLDLValue, extractASCVDRisk, buildLDLCardResult, extractLDLValueFromComprehensiveData, extractASCVDRiskFromResults } from './ldl-dynamic'
 import { echoPayload, validateDemoPayload, devLog } from './dev/scratchpad'
 
 type Bindings = {
@@ -1189,121 +1190,10 @@ app.post('/api/report/preview/ldl', async (c) => {
       }, 422)
     }
     
-    // SELF-CONTAINED HELPERS: Define locally to avoid any undefined references
-    
-    // Helper: Extract LDL value from biomarkers object
-    function getLDLValueLocal(biomarkers: any): number | null {
-      if (!biomarkers || typeof biomarkers !== 'object') return null
-      
-      const ldlKeys = ['ldl', 'ldl_c', 'ldlCholesterol', 'ldl_cholesterol', 'LDL']
-      
-      for (const key of ldlKeys) {
-        const value = biomarkers[key]
-        if (value != null && !isNaN(Number(value))) {
-          return Number(value)
-        }
-      }
-      
-      return null
-    }
-    
-    // Helper: Extract ASCVD risk from risk object (coerce % to decimal if needed)
-    function getASCVDRiskLocal(riskObj: any): number | null {
-      if (!riskObj || typeof riskObj !== 'object') return null
-      
-      const riskKeys = ['ascvd', 'ascvd_risk', 'ASCVD']
-      
-      for (const key of riskKeys) {
-        let value = riskObj[key]
-        if (value != null && !isNaN(Number(value))) {
-          value = Number(value)
-          // If value > 1, assume it's a percentage and convert to decimal (e.g., 9 → 0.09)
-          if (value > 1) {
-            value = value / 100
-          }
-          return value
-        }
-      }
-      
-      // Fallback: check risk_level
-      if (riskObj.risk_level) {
-        const riskLevelMap: Record<string, number> = {
-          'low': 0.05,
-          'moderate': 0.10,
-          'high': 0.15,
-          'very_high': 0.25
-        }
-        return riskLevelMap[riskObj.risk_level] || null
-      }
-      
-      return null
-    }
-    
-    // Helper: Generate dynamic LDL card with gating logic
-    function generateDynamicLDLCardLocal(ldlValue: number | null, ascvdRisk: number | null): { shown: boolean; ldlValue: number | null; ascvdRisk: number | null; ldlTarget: number | null; html: string } {
-      // Gate: Show card ONLY if LDL > 100 OR ASCVD risk >= 7.5%
-      const shouldShow = ldlValue != null && (ldlValue > 100 || (ascvdRisk != null && ascvdRisk >= 0.075))
-      
-      if (!shouldShow) {
-        return { shown: false, ldlValue: ldlValue, ascvdRisk: ascvdRisk, ldlTarget: null, html: '' }
-      }
-      
-      // Compute dynamic target based on ASCVD risk
-      let ldlTarget = 130 // Default for low risk
-      if (ascvdRisk != null) {
-        if (ascvdRisk >= 0.20) {
-          ldlTarget = 70  // Very high risk: <70 mg/dL
-        } else if (ascvdRisk >= 0.075) {
-          ldlTarget = 100 // Moderate-high risk: <100 mg/dL
-        }
-      }
-      
-      const html = `
-              <section data-test="ldl-card" class="bg-white rounded-lg p-4 border border-red-200">
-                  <div class="flex items-start">
-                      <div class="bg-red-100 p-2 rounded-full mr-4 mt-1">
-                          <i class="fas fa-heartbeat text-red-600"></i>
-                      </div>
-                      <div class="flex-1">
-                          <h4 class="font-semibold text-gray-800 mb-2">LDL Cholesterol Optimization <span class="text-xs text-blue-600">(Preview dynamic)</span></h4>
-                          <p class="text-sm text-gray-600 mb-3">
-                              Current LDL: <strong>${Math.round(ldlValue!)} mg/dL</strong> | 
-                              Target LDL: <strong>&lt;${ldlTarget} mg/dL</strong>
-                              <span class="text-xs italic">(target depends on overall ASCVD risk)</span>
-                          </p>
-                          <div class="grid md:grid-cols-2 gap-4">
-                              <div>
-                                  <p class="text-sm font-medium text-gray-700 mb-2">Nutritional Interventions:</p>
-                                  <ul class="text-xs text-gray-600 space-y-1">
-                                      <li>• Increase soluble fiber intake (oats, beans, apples)</li>
-                                      <li>• Add plant sterols/stanols</li>
-                                      <li>• Replace saturated fats with monounsaturated fats</li>
-                                      <li>• Include fatty fish 2-3 times per week</li>
-                                  </ul>
-                              </div>
-                              <div>
-                                  <p class="text-sm font-medium text-gray-700 mb-2">Options to Discuss with Your Clinician:</p>
-                                  <ul class="text-xs text-gray-600 space-y-1">
-                                      <li>• Bergamot extract</li>
-                                      <li>• Psyllium husk fiber</li>
-                                      <li>• Omega-3 fatty acids (EPA/DHA)</li>
-                                      <li>• Lifestyle optimization strategies</li>
-                                  </ul>
-                                  <p class="text-xs text-gray-500 italic mt-2">Note: Dosing and suitability vary by individual health status.</p>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              </section>
-      `
-      
-      return { shown: true, ldlValue: ldlValue, ascvdRisk: ascvdRisk, ldlTarget: ldlTarget, html: html.trim() }
-    }
-    
-    // Apply the helpers to the request body
-    const ldlValue = getLDLValueLocal(body.biomarkers)
-    const ascvdRisk = getASCVDRiskLocal(body.risk)
-    const cardResult = generateDynamicLDLCardLocal(ldlValue, ascvdRisk)
+    // Extract LDL and ASCVD risk using shared helpers
+    const ldlValue = extractLDLValue(body.biomarkers)
+    const ascvdRisk = extractASCVDRisk(body.risk)
+    const cardResult = buildLDLCardResult(ldlValue, ascvdRisk)
     
     // Return analysis results (standard contract)
     return c.json({
@@ -1419,131 +1309,20 @@ app.get('/report', async (c) => {
     // PREVIEW FEATURE FLAG: Dynamic LDL Block Personalization
     const PREVIEW_DYNAMIC_LDL = true
 
-    // Helper: Extract LDL value from comprehensiveData (probe multiple keys)
-    function getLDLValue(): number | null {
-      if (!comprehensiveData) return null
-      
-      // Probe common LDL keys in order of preference
-      const ldlKeys = ['ldlCholesterol', 'ldl_cholesterol', 'ldl', 'ldl_c', 'LDL']
-      
-      // Check biomarkers object first
-      if (comprehensiveData.biomarkers) {
-        for (const key of ldlKeys) {
-          const value = comprehensiveData.biomarkers[key]
-          if (value != null && !isNaN(Number(value))) {
-            return Number(value)
-          }
-        }
-      }
-      
-      // Check clinical object
-      if (comprehensiveData.clinical) {
-        for (const key of ldlKeys) {
-          const value = comprehensiveData.clinical[key]
-          if (value != null && !isNaN(Number(value))) {
-            return Number(value)
-          }
-        }
-      }
-      
-      // Check root level
-      for (const key of ldlKeys) {
-        const value = comprehensiveData[key]
-        if (value != null && !isNaN(Number(value))) {
-          return Number(value)
-        }
-      }
-      
-      return null
-    }
-
-    // Helper: Extract ASCVD 10-year risk from risks array
-    function getASCVDRisk(): number | null {
-      if (!risks || !risks.results || risks.results.length === 0) return null
-      
-      // Find cardiovascular risk entry
-      const cvdRisk = risks.results.find((r: any) => 
-        r.category === 'cardiovascular' || r.category === 'ascvd' || r.category === 'cvd'
-      )
-      
-      if (!cvdRisk) return null
-      
-      // Try to extract numeric risk score (typically 0-1 range representing percentage)
-      if (cvdRisk.risk_score != null && !isNaN(Number(cvdRisk.risk_score))) {
-        return Number(cvdRisk.risk_score)
-      }
-      
-      // Fallback: map risk_level to proxy numeric value
-      const riskLevelMap: Record<string, number> = {
-        'low': 0.05,
-        'moderate': 0.10,
-        'high': 0.15,
-        'very_high': 0.25
-      }
-      
-      return riskLevelMap[cvdRisk.risk_level] || null
-    }
-
     // Helper: Generate dynamic LDL recommendation card (Preview)
+    // Uses shared LDL logic from ldl-dynamic.ts
     function generateDynamicLDLCard(): string {
       if (!PREVIEW_DYNAMIC_LDL) return ''
       
-      const ldlValue = getLDLValue()
-      const ascvdRisk = getASCVDRisk()
+      // Extract LDL and ASCVD risk using shared helpers
+      const ldlValue = extractLDLValueFromComprehensiveData(comprehensiveData)
+      const ascvdRisk = extractASCVDRiskFromResults(risks)
       
-      // Gate: Show card ONLY if LDL > 100 OR ASCVD risk >= 7.5%
-      const shouldShow = ldlValue != null && (ldlValue > 100 || (ascvdRisk != null && ascvdRisk >= 0.075))
+      // Build card result using shared logic
+      const cardResult = buildLDLCardResult(ldlValue, ascvdRisk)
       
-      if (!shouldShow) return ''
-      
-      // Compute dynamic target based on ASCVD risk
-      let ldlTarget = 130 // Default for low risk
-      if (ascvdRisk != null) {
-        if (ascvdRisk >= 0.20) {
-          ldlTarget = 70  // Very high risk: <70 mg/dL
-        } else if (ascvdRisk >= 0.075) {
-          ldlTarget = 100 // Moderate-high risk: <100 mg/dL
-        }
-      }
-      
-      return `
-              <section data-test="ldl-card" class="bg-white rounded-lg p-4 border border-red-200">
-                  <div class="flex items-start">
-                      <div class="bg-red-100 p-2 rounded-full mr-4 mt-1">
-                          <i class="fas fa-heartbeat text-red-600"></i>
-                      </div>
-                      <div class="flex-1">
-                          <h4 class="font-semibold text-gray-800 mb-2">LDL Cholesterol Optimization <span class="text-xs text-blue-600">(Preview dynamic)</span></h4>
-                          <p class="text-sm text-gray-600 mb-3">
-                              Current LDL: <strong>${Math.round(ldlValue)} mg/dL</strong> | 
-                              Target LDL: <strong>&lt;${ldlTarget} mg/dL</strong>
-                              <span class="text-xs italic">(target depends on overall ASCVD risk)</span>
-                          </p>
-                          <div class="grid md:grid-cols-2 gap-4">
-                              <div>
-                                  <p class="text-sm font-medium text-gray-700 mb-2">Nutritional Interventions:</p>
-                                  <ul class="text-xs text-gray-600 space-y-1">
-                                      <li>• Increase soluble fiber intake (oats, beans, apples)</li>
-                                      <li>• Add plant sterols/stanols</li>
-                                      <li>• Replace saturated fats with monounsaturated fats</li>
-                                      <li>• Include fatty fish 2-3 times per week</li>
-                                  </ul>
-                              </div>
-                              <div>
-                                  <p class="text-sm font-medium text-gray-700 mb-2">Options to Discuss with Your Clinician:</p>
-                                  <ul class="text-xs text-gray-600 space-y-1">
-                                      <li>• Bergamot extract</li>
-                                      <li>• Psyllium husk fiber</li>
-                                      <li>• Omega-3 fatty acids (EPA/DHA)</li>
-                                      <li>• Lifestyle optimization strategies</li>
-                                  </ul>
-                                  <p class="text-xs text-gray-500 italic mt-2">Note: Dosing and suitability vary by individual health status.</p>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              </section>
-      `
+      // Return HTML if card should be shown, otherwise empty string
+      return cardResult.shown ? cardResult.html : ''
     }
 
     function generateFunctionalMedicineSection() {
