@@ -1191,16 +1191,258 @@ app.post('/api/report/preview/vitaminD', async (c) => {
       }, 422)
     }
     
-    // Extract Vitamin D value using shared helper
-    const vitaminDValue = extractVitaminDValue(body.biomarkers)
+    // SELF-CONTAINED HELPERS: Define locally to avoid any undefined references
     
-    // Build card result using shared helper
-    const cardResult = buildVitaminDCardResult(vitaminDValue)
+    // Helper: Extract Vitamin D value from biomarkers object
+    function getVitaminDValueLocal(biomarkers: any): number | null {
+      if (!biomarkers || typeof biomarkers !== 'object') return null
+      
+      const vitDKeys = ['vitaminD', 'vitamin_d', 'vitamin_D', 'VitaminD', 'VITAMIN_D', '25OHD', '25_oh_d']
+      
+      for (const key of vitDKeys) {
+        const value = biomarkers[key]
+        if (value != null && !isNaN(Number(value))) {
+          return Number(value)
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Classify Vitamin D status into clinical tiers
+    function classifyVitaminDStatusLocal(value: number | null): string | null {
+      if (value == null) return null
+      
+      if (value < 20) {
+        return 'severe_deficiency'
+      } else if (value < 30) {
+        return 'insufficiency'
+      } else if (value < 50) {
+        return 'low_normal'
+      } else if (value <= 80) {
+        return 'optimal'
+      } else {
+        return 'high'
+      }
+    }
+    
+    // Helper: Generate dynamic Vitamin D card with gating logic
+    function generateDynamicVitaminDCardLocal(vitaminDValue: number | null): { shown: boolean; vitaminDValue: number | null; status: string | null; html: string } {
+      if (vitaminDValue == null) {
+        return { shown: false, vitaminDValue: null, status: null, html: '' }
+      }
+      
+      const status = classifyVitaminDStatusLocal(vitaminDValue)
+      let priorityClass = 'border-yellow-200'
+      let iconBg = 'bg-yellow-100'
+      let iconColor = 'text-yellow-600'
+      let priorityLabel = ''
+      let recommendations = ''
+      
+      switch (status) {
+        case 'severe_deficiency':
+          priorityClass = 'border-red-200'
+          iconBg = 'bg-red-100'
+          iconColor = 'text-red-600'
+          priorityLabel = 'HIGH PRIORITY'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Severe Deficiency - Normal: 30-100 ng/mL)
+                          </p>
+                          <div class="bg-red-50 border border-red-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-red-800 mb-1">⚠️ Immediate Action Required</p>
+                              <p class="text-xs text-red-700">Severe deficiency requires aggressive repletion and close monitoring.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Recommended Actions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• High-dose D3 supplementation (5,000-10,000 IU daily)</li>
+                                      <li>• Consider loading dose if clinically appropriate</li>
+                                      <li>• Take with fat-containing meal for absorption</li>
+                                      <li>• Retest in 6-8 weeks to monitor response</li>
+                                      <li>• Assess for malabsorption issues</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Clinical Considerations:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Add Vitamin K2 co-supplementation (45-180 mcg)</li>
+                                      <li>• Increase dietary sources (fatty fish, fortified foods)</li>
+                                      <li>• Safe sun exposure when possible (10-30 min)</li>
+                                      <li>• Discuss with healthcare provider for personalized plan</li>
+                                  </ul>
+                              </div>
+                          </div>
+      `
+          break
+          
+        case 'insufficiency':
+          priorityClass = 'border-orange-200'
+          iconBg = 'bg-orange-100'
+          iconColor = 'text-orange-600'
+          priorityLabel = 'MEDIUM PRIORITY'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Insufficient - Normal: 30-100 ng/mL)
+                          </p>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Recommended Actions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Moderate-dose D3 supplementation (4,000-5,000 IU daily)</li>
+                                      <li>• Take with fat-containing meal</li>
+                                      <li>• Retest in 8-12 weeks</li>
+                                      <li>• Monitor for improvement to optimal range (50-80 ng/mL)</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Lifestyle Optimization:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Consider Vitamin K2 co-supplementation</li>
+                                      <li>• Increase dietary sources (salmon, mackerel, sardines)</li>
+                                      <li>• Safe sun exposure (10-20 min, 2-3x per week)</li>
+                                      <li>• Address any absorption issues with provider</li>
+                                  </ul>
+                              </div>
+                          </div>
+      `
+          break
+          
+        case 'low_normal':
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Acceptable - Optimal: 50-80 ng/mL)
+                          </p>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Maintenance Recommendations:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Maintenance D3 supplementation (2,000-3,000 IU daily)</li>
+                                      <li>• Continue taking with fat-containing meal</li>
+                                      <li>• Retest in 3-6 months</li>
+                                      <li>• Consider optimizing to 50-80 ng/mL range</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Lifestyle Support:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Regular sun exposure (15-20 min, 3-4x per week)</li>
+                                      <li>• Include vitamin D-rich foods in diet</li>
+                                      <li>• Consider seasonal adjustments (higher dose in winter)</li>
+                                      <li>• Monitor if levels trend downward</li>
+                                  </ul>
+                              </div>
+                          </div>
+      `
+          break
+          
+        case 'optimal':
+          priorityClass = 'border-green-200'
+          iconBg = 'bg-green-100'
+          iconColor = 'text-green-600'
+          priorityLabel = 'OPTIMAL'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Optimal Range: 50-80 ng/mL) ✓
+                          </p>
+                          <div class="bg-green-50 border border-green-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-green-800 mb-1">✓ On Track</p>
+                              <p class="text-xs text-green-700">Your vitamin D level is in the optimal range. Maintain your current plan.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Maintenance Plan:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Continue current D3 dose (1,000-2,000 IU daily)</li>
+                                      <li>• Keep taking with fat-containing meal</li>
+                                      <li>• Annual recheck recommended</li>
+                                      <li>• No need to increase dosing</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Ongoing Support:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Continue balanced diet with vitamin D sources</li>
+                                      <li>• Maintain regular outdoor activity</li>
+                                      <li>• Adjust dose seasonally if needed</li>
+                                      <li>• Monitor if life circumstances change</li>
+                                  </ul>
+                              </div>
+                          </div>
+      `
+          break
+          
+        case 'high':
+          priorityClass = 'border-red-200'
+          iconBg = 'bg-red-100'
+          iconColor = 'text-red-600'
+          priorityLabel = 'CAUTION'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Above Optimal - Risk of Toxicity)
+                          </p>
+                          <div class="bg-red-50 border border-red-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-red-800 mb-1">⚠️ Caution: High Level</p>
+                              <p class="text-xs text-red-700">Elevated vitamin D can lead to hypercalcemia and other complications.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Immediate Actions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong>HOLD all vitamin D supplementation</strong></li>
+                                      <li>• Reduce fortified food intake</li>
+                                      <li>• Retest in 3 months to monitor decline</li>
+                                      <li>• Check serum calcium levels</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Clinical Follow-up:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Consult healthcare provider promptly</li>
+                                      <li>• Assess for symptoms of hypervitaminosis D</li>
+                                      <li>• Monitor kidney function if appropriate</li>
+                                      <li>• Re-evaluate supplementation regimen</li>
+                                  </ul>
+                                  <p class="text-xs text-red-600 font-medium mt-2">Do NOT continue routine high-dose supplementation.</p>
+                              </div>
+                          </div>
+      `
+          break
+          
+        default:
+          return { shown: false, vitaminDValue: vitaminDValue, status: status, html: '' }
+      }
+      
+      const html = `
+              <section data-test="vitamin-d-card" class="bg-white rounded-lg p-4 border ${priorityClass}">
+                  <div class="flex items-start">
+                      <div class="${iconBg} p-2 rounded-full mr-4 mt-1">
+                          <i class="fas fa-sun ${iconColor}"></i>
+                      </div>
+                      <div class="flex-1">
+                          <h4 class="font-semibold text-gray-800 mb-1">
+                              Vitamin D Optimization 
+                              <span class="text-xs text-blue-600">(Preview dynamic)</span>
+                              ${priorityLabel ? `<span class="ml-2 text-xs font-bold ${iconColor}">${priorityLabel}</span>` : ''}
+                          </h4>
+                          ${recommendations}
+                      </div>
+                  </div>
+              </section>
+      `
+      
+      return { shown: true, vitaminDValue: vitaminDValue, status: status, html: html.trim() }
+    }
+    
+    // Apply the helpers to the request body
+    const vitaminDValue = getVitaminDValueLocal(body.biomarkers)
+    const cardResult = generateDynamicVitaminDCardLocal(vitaminDValue)
     
     // Log for debugging (safe - no PHI, no DB)
     console.log(`[${fingerprint}] Vitamin D probe: tenant=${tenant}, vitaminD=${vitaminDValue}, status=${cardResult.status}, shown=${cardResult.shown}`)
     
-    // Return success with card data
+    // Return success with card data (standard contract)
     return c.json({
       success: true,
       shown: cardResult.shown,
@@ -1211,13 +1453,13 @@ app.post('/api/report/preview/vitaminD', async (c) => {
     })
     
   } catch (error) {
-    // Catch-all error handler
+    // Catch-all for unexpected errors
     const err = error as Error
-    console.error(`[${fingerprint}] Unexpected error in Vitamin D probe: ${err.message}`)
+    console.error(`[${fingerprint}] Unexpected error:`, err.message)
     return c.json({
       success: false,
       error: 'Probe failed',
-      details: [{ field: '_', message: 'Unexpected error' }],
+      details: [{ field: 'system', message: 'Internal probe error' }],
       fingerprint: fingerprint
     }, 500)
   }
