@@ -318,28 +318,95 @@ curl -s -X POST "https://feat-my-first-mods-preview.longenix-prime.pages.dev/api
 
 ---
 
+## Troubleshooting
+
+### HTTP Error Codes
+
+The endpoint uses specific HTTP status codes to distinguish error types:
+
+#### 400 - Validation Failed (Client Error)
+**When:** Missing or invalid tenant ID  
+**Response:**
+```json
+{
+  "success": false,
+  "error": "Validation failed",
+  "details": [{ "field": "tenant", "message": "Missing or invalid tenant" }]
+}
+```
+
+#### 422 - Probe Failed (Input Error)
+**When:** Invalid JSON syntax or shape violations (biomarkers/risk must be objects)  
+**Response:**
+```json
+{
+  "success": false,
+  "error": "Probe failed",
+  "details": [{ "field": "input", "message": "Invalid JSON or shape" }],
+  "fingerprint": "ldl-abc123-xyz45"
+}
+```
+**Note:** The `fingerprint` field provides a unique identifier for error tracking. Save this when reporting issues.
+
+#### 500 - Probe Failed (System Error)
+**When:** Unexpected internal errors or DB access attempts (which are forbidden)  
+**Response:**
+```json
+{
+  "success": false,
+  "error": "Probe failed",
+  "details": [{ "field": "system", "message": "Internal probe error" }],
+  "fingerprint": "ldl-def456-uvw78"
+}
+```
+
+### Empty Body Handling
+The endpoint accepts empty bodies `{}` and returns:
+```json
+{
+  "success": true,
+  "shown": false,
+  "ldlValue": null,
+  "ascvdRisk": null,
+  "ldlTarget": null,
+  "html": ""
+}
+```
+
+### ASCVD Risk Percentage Coercion
+If you provide ASCVD risk as a percentage (e.g., `9` instead of `0.09`), the endpoint automatically converts values >1 to decimals:
+- Input: `{"risk": {"ascvd": 9}}` → Interpreted as `0.09` (9%)
+- Input: `{"risk": {"ascvd": 0.09}}` → Used as-is `0.09` (9%)
+
+---
+
 ## Safety Confirmations
 
 ✅ **NO DATABASE ACCESS** — Endpoint operates entirely on request body mock data  
-✅ **NO SCHEMA CHANGES** — Only added endpoint to `src/index.tsx`  
+✅ **DB GUARD ACTIVE** — Throws 500 if DB binding is detected  
+✅ **NO SCHEMA CHANGES** — Only modified probe handler in `src/index.tsx`  
 ✅ **NO BUILD CONFIG CHANGES** — Uses existing Hono routes  
 ✅ **NO SECRET MODIFICATIONS** — Uses same Basic Auth as other endpoints  
 ✅ **PREVIEW ONLY** — Endpoint path `/api/report/preview/ldl` clearly indicates preview status  
 ✅ **DRY_RUN COMPATIBLE** — Returns JSON analysis, never writes to DB  
+✅ **DEFENSIVE PARSING** — Empty bodies allowed, shape validation active  
+✅ **NO PHI IN RESPONSES** — Errors return only fingerprints, no stack traces  
 
 ---
 
 ## Next Steps
 
 1. **Commit changes** to `fix/preview-dynamic-ldl` branch
-2. **Update PR #5** with new endpoint documentation
-3. **Run all 4 test scenarios** (A-D)
-4. **Verify multi-key probing** works for all LDL variants
-5. **Test error cases** (missing tenant, invalid JSON)
-6. **Compare probe output** with actual `/report` route for consistency
+2. **Update PR #5** with hotfix commit
+3. **Deploy to Preview** for integration testing
+4. **Run all 4 test scenarios** (A-D)
+5. **Verify multi-key probing** works for all LDL variants
+6. **Test error cases** (missing tenant, invalid JSON, invalid shape)
+7. **Compare probe output** with actual `/report` route for consistency
 
 ---
 
 **Test Execution Date:** 2025-11-27  
+**Version:** Stabilized hotfix  
 **Tester:** (Your name)  
 **Results:** (Pass/Fail/Notes)

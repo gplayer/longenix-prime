@@ -1104,8 +1104,24 @@ app.post('/api/dev/try', async (c) => {
 // Tenant: X-Tenant-ID required
 // Purpose: Test getLDLValue() and getASCVDRisk() helpers with custom data
 // SAFETY: NO DB WRITES - returns JSON analysis only
+// STABILIZED: Defensive parsing, proper error codes, no PHI in responses
 app.post('/api/report/preview/ldl', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `ldl-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
   try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    const { env } = c
+    if (env.DB) {
+      console.error(`[${fingerprint}] DB binding present - probe must not access DB`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'system', message: 'DB access not allowed in probe endpoint' }],
+        fingerprint: fingerprint
+      }, 500)
+    }
+    
     // Extract tenant from header or query param
     const tenantFromHeader = c.req.header('X-Tenant-ID')
     const tenantFromQuery = c.req.query('tenant')
@@ -1128,58 +1144,66 @@ app.post('/api/report/preview/ldl', async (c) => {
       }, 400)
     }
     
-    // Parse request body
-    let body: any
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
     try {
-      body = await c.req.json()
-    } catch (parseError) {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
       return c.json({
         success: false,
-        error: 'Validation failed',
-        details: [{ field: 'body', message: 'Request body must be valid JSON' }]
-      }, 400)
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
     }
     
-    // CRITICAL: Create mock comprehensiveData and risks objects from request body
-    // This simulates what the report route would have from DB, but NO DB READ
-    const mockComprehensiveData = body.biomarkers ? { biomarkers: body.biomarkers } : null
-    const mockRisks = body.risk ? {
-      results: [{
-        category: 'cardiovascular',
-        risk_score: body.risk.ascvd || body.risk.ascvd_risk || null,
-        risk_level: body.risk.risk_level || 'unknown'
-      }]
-    } : { results: [] }
-    
-    // Reuse the same helper functions from the report route
-    // These are the EXACT functions being tested in Dynamic Fix Pack #1
-    
-    // Helper: Extract LDL value (copied logic from report context)
-    function getLDLValueLocal(data: any): number | null {
-      if (!data) return null
-      
-      const ldlKeys = ['ldlCholesterol', 'ldl_cholesterol', 'ldl', 'ldl_c', 'LDL']
-      
-      if (data.biomarkers) {
-        for (const key of ldlKeys) {
-          const value = data.biomarkers[key]
-          if (value != null && !isNaN(Number(value))) {
-            return Number(value)
-          }
-        }
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
       }
+    }
+    
+    // Validate shape: biomarkers and risk must be objects if present
+    if (body.biomarkers !== undefined && (typeof body.biomarkers !== 'object' || body.biomarkers === null || Array.isArray(body.biomarkers))) {
+      console.error(`[${fingerprint}] Invalid biomarkers shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - biomarkers must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    if (body.risk !== undefined && (typeof body.risk !== 'object' || body.risk === null || Array.isArray(body.risk))) {
+      console.error(`[${fingerprint}] Invalid risk shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - risk must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    // SELF-CONTAINED HELPERS: Define locally to avoid any undefined references
+    
+    // Helper: Extract LDL value from biomarkers object
+    function getLDLValueLocal(biomarkers: any): number | null {
+      if (!biomarkers || typeof biomarkers !== 'object') return null
       
-      if (data.clinical) {
-        for (const key of ldlKeys) {
-          const value = data.clinical[key]
-          if (value != null && !isNaN(Number(value))) {
-            return Number(value)
-          }
-        }
-      }
+      const ldlKeys = ['ldl', 'ldl_c', 'ldlCholesterol', 'ldl_cholesterol', 'LDL']
       
       for (const key of ldlKeys) {
-        const value = data[key]
+        const value = biomarkers[key]
         if (value != null && !isNaN(Number(value))) {
           return Number(value)
         }
@@ -1188,43 +1212,45 @@ app.post('/api/report/preview/ldl', async (c) => {
       return null
     }
     
-    // Helper: Extract ASCVD risk (copied logic from report context)
-    function getASCVDRiskLocal(risks: any): number | null {
-      if (!risks || !risks.results || risks.results.length === 0) return null
+    // Helper: Extract ASCVD risk from risk object (coerce % to decimal if needed)
+    function getASCVDRiskLocal(riskObj: any): number | null {
+      if (!riskObj || typeof riskObj !== 'object') return null
       
-      const cvdRisk = risks.results.find((r: any) => 
-        r.category === 'cardiovascular' || r.category === 'ascvd' || r.category === 'cvd'
-      )
+      const riskKeys = ['ascvd', 'ascvd_risk', 'ASCVD']
       
-      if (!cvdRisk) return null
-      
-      if (cvdRisk.risk_score != null && !isNaN(Number(cvdRisk.risk_score))) {
-        return Number(cvdRisk.risk_score)
+      for (const key of riskKeys) {
+        let value = riskObj[key]
+        if (value != null && !isNaN(Number(value))) {
+          value = Number(value)
+          // If value > 1, assume it's a percentage and convert to decimal (e.g., 9 → 0.09)
+          if (value > 1) {
+            value = value / 100
+          }
+          return value
+        }
       }
       
-      const riskLevelMap: Record<string, number> = {
-        'low': 0.05,
-        'moderate': 0.10,
-        'high': 0.15,
-        'very_high': 0.25
+      // Fallback: check risk_level
+      if (riskObj.risk_level) {
+        const riskLevelMap: Record<string, number> = {
+          'low': 0.05,
+          'moderate': 0.10,
+          'high': 0.15,
+          'very_high': 0.25
+        }
+        return riskLevelMap[riskObj.risk_level] || null
       }
       
-      return riskLevelMap[cvdRisk.risk_level] || null
+      return null
     }
     
-    // Helper: Generate dynamic LDL card (copied logic from report context)
-    function generateDynamicLDLCardLocal(ldlValue: number | null, ascvdRisk: number | null): { shown: boolean; target: number | null; html: string } {
-      const PREVIEW_DYNAMIC_LDL = true
-      
-      if (!PREVIEW_DYNAMIC_LDL) {
-        return { shown: false, target: null, html: '' }
-      }
-      
+    // Helper: Generate dynamic LDL card with gating logic
+    function generateDynamicLDLCardLocal(ldlValue: number | null, ascvdRisk: number | null): { shown: boolean; ldlValue: number | null; ascvdRisk: number | null; ldlTarget: number | null; html: string } {
       // Gate: Show card ONLY if LDL > 100 OR ASCVD risk >= 7.5%
       const shouldShow = ldlValue != null && (ldlValue > 100 || (ascvdRisk != null && ascvdRisk >= 0.075))
       
       if (!shouldShow) {
-        return { shown: false, target: null, html: '' }
+        return { shown: false, ldlValue: ldlValue, ascvdRisk: ascvdRisk, ldlTarget: null, html: '' }
       }
       
       // Compute dynamic target based on ASCVD risk
@@ -1246,7 +1272,7 @@ app.post('/api/report/preview/ldl', async (c) => {
                       <div class="flex-1">
                           <h4 class="font-semibold text-gray-800 mb-2">LDL Cholesterol Optimization <span class="text-xs text-blue-600">(Preview dynamic)</span></h4>
                           <p class="text-sm text-gray-600 mb-3">
-                              Current LDL: <strong>${Math.round(ldlValue)} mg/dL</strong> | 
+                              Current LDL: <strong>${Math.round(ldlValue!)} mg/dL</strong> | 
                               Target LDL: <strong>&lt;${ldlTarget} mg/dL</strong>
                               <span class="text-xs italic">(target depends on overall ASCVD risk)</span>
                           </p>
@@ -1276,41 +1302,33 @@ app.post('/api/report/preview/ldl', async (c) => {
               </section>
       `
       
-      return { shown: true, target: ldlTarget, html: html.trim() }
+      return { shown: true, ldlValue: ldlValue, ascvdRisk: ascvdRisk, ldlTarget: ldlTarget, html: html.trim() }
     }
     
-    // Apply the helpers to the mock data
-    const ldlValue = getLDLValueLocal(mockComprehensiveData)
-    const ascvdRisk = getASCVDRiskLocal(mockRisks)
+    // Apply the helpers to the request body
+    const ldlValue = getLDLValueLocal(body.biomarkers)
+    const ascvdRisk = getASCVDRiskLocal(body.risk)
     const cardResult = generateDynamicLDLCardLocal(ldlValue, ascvdRisk)
     
-    // SAFETY CHECK: Ensure no DB writes were attempted
-    // This is a read-only probe endpoint
-    const { env } = c
-    if (env.DB) {
-      // Log warning but allow the probe to continue
-      console.warn('⚠️ WARNING: DB binding detected in LDL probe endpoint - NO DB OPERATIONS ALLOWED')
-    }
-    
-    // Return analysis results
+    // Return analysis results (standard contract)
     return c.json({
       success: true,
-      tenant: tenant,
-      probe: 'ldl-dynamic',
       shown: cardResult.shown,
-      ldlValue: ldlValue,
-      ascvdRisk: ascvdRisk,
-      ldlTarget: cardResult.target,
-      html: cardResult.html,
-      message: 'Preview LDL probe complete (no DB writes)'
+      ldlValue: cardResult.ldlValue,
+      ascvdRisk: cardResult.ascvdRisk,
+      ldlTarget: cardResult.ldlTarget,
+      html: cardResult.html
     })
     
   } catch (error) {
+    // Catch-all for unexpected errors
     const err = error as Error
+    console.error(`[${fingerprint}] Unexpected error:`, err.message)
     return c.json({
       success: false,
-      error: 'Internal error in LDL probe',
-      details: [{ field: '_', message: err.message || 'Unknown error' }]
+      error: 'Probe failed',
+      details: [{ field: 'system', message: 'Internal probe error' }],
+      fingerprint: fingerprint
     }, 500)
   }
 })
