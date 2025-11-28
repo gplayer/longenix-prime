@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalculator, HealthOptimizationCalculator } from './medical-algorithms'
+import { extractLDLValue, extractASCVDRisk, buildLDLCardResult, extractLDLValueFromComprehensiveData, extractASCVDRiskFromResults } from './ldl-dynamic'
 import { echoPayload, validateDemoPayload, devLog } from './dev/scratchpad'
 
 type Bindings = {
@@ -1098,6 +1099,125 @@ app.post('/api/dev/try', async (c) => {
   }
 })
 
+// PREVIEW: LDL Probe Endpoint (Dynamic Fix Pack #1 validation)
+// POST /api/report/preview/ldl
+// Auth: Basic Auth (same as other endpoints)
+// Tenant: X-Tenant-ID required
+// Purpose: Test getLDLValue() and getASCVDRisk() helpers with custom data
+// SAFETY: NO DB WRITES - returns JSON analysis only
+// STABILIZED: Defensive parsing, proper error codes, no PHI in responses
+app.post('/api/report/preview/ldl', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `ldl-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
+  try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    // Log warning if DB binding present but don't fail (allows local dev/preview)
+    const { env } = c
+    if (env.DB) {
+      console.warn(`[${fingerprint}] ⚠️  DB binding present - probe will not access DB`)
+    }
+    
+    // Extract tenant from header or query param
+    const tenantFromHeader = c.req.header('X-Tenant-ID')
+    const tenantFromQuery = c.req.query('tenant')
+    const tenant = tenantFromHeader || tenantFromQuery
+    
+    // Validate tenant
+    if (!tenant) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+      }, 400)
+    }
+    
+    if (!ALLOWED_TENANTS.includes(tenant)) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Invalid tenant' }]
+      }, 400)
+    }
+    
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
+      }
+    }
+    
+    // Validate shape: biomarkers and risk must be objects if present
+    if (body.biomarkers !== undefined && (typeof body.biomarkers !== 'object' || body.biomarkers === null || Array.isArray(body.biomarkers))) {
+      console.error(`[${fingerprint}] Invalid biomarkers shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - biomarkers must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    if (body.risk !== undefined && (typeof body.risk !== 'object' || body.risk === null || Array.isArray(body.risk))) {
+      console.error(`[${fingerprint}] Invalid risk shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - risk must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    // Extract LDL and ASCVD risk using shared helpers
+    const ldlValue = extractLDLValue(body.biomarkers)
+    const ascvdRisk = extractASCVDRisk(body.risk)
+    const cardResult = buildLDLCardResult(ldlValue, ascvdRisk)
+    
+    // Return analysis results (standard contract)
+    return c.json({
+      success: true,
+      shown: cardResult.shown,
+      ldlValue: cardResult.ldlValue,
+      ascvdRisk: cardResult.ascvdRisk,
+      ldlTarget: cardResult.ldlTarget,
+      html: cardResult.html
+    })
+    
+  } catch (error) {
+    // Catch-all for unexpected errors
+    const err = error as Error
+    console.error(`[${fingerprint}] Unexpected error:`, err.message)
+    return c.json({
+      success: false,
+      error: 'Probe failed',
+      details: [{ field: 'system', message: 'Internal probe error' }],
+      fingerprint: fingerprint
+    }, 500)
+  }
+})
+
 // Dynamic report route
 app.get('/report', async (c) => {
   const { env } = c
@@ -1186,6 +1306,24 @@ app.get('/report', async (c) => {
 
     // Helper functions for dynamic content generation
 
+    // PREVIEW FEATURE FLAG: Dynamic LDL Block Personalization
+    const PREVIEW_DYNAMIC_LDL = true
+
+    // Helper: Generate dynamic LDL recommendation card (Preview)
+    // Uses shared LDL logic from ldl-dynamic.ts
+    function generateDynamicLDLCard(): string {
+      if (!PREVIEW_DYNAMIC_LDL) return ''
+      
+      // Extract LDL and ASCVD risk using shared helpers
+      const ldlValue = extractLDLValueFromComprehensiveData(comprehensiveData)
+      const ascvdRisk = extractASCVDRiskFromResults(risks)
+      
+      // Build card result using shared logic
+      const cardResult = buildLDLCardResult(ldlValue, ascvdRisk)
+      
+      // Return HTML if card should be shown, otherwise empty string
+      return cardResult.shown ? cardResult.html : ''
+    }
 
     function generateFunctionalMedicineSection() {
       if (!comprehensiveData) {
@@ -3577,37 +3715,7 @@ app.get('/report', async (c) => {
                               <i class="fas fa-exclamation-circle mr-2"></i>High Priority Interventions
                           </h3>
                           <div class="space-y-6">
-                              <div class="bg-white rounded-lg p-4 border border-red-200">
-                                  <div class="flex items-start">
-                                      <div class="bg-red-100 p-2 rounded-full mr-4 mt-1">
-                                          <i class="fas fa-heartbeat text-red-600"></i>
-                                      </div>
-                                      <div class="flex-1">
-                                          <h4 class="font-semibold text-gray-800 mb-2">LDL Cholesterol Optimization</h4>
-                                          <p class="text-sm text-gray-600 mb-3">Current: 115 mg/dL | Target: &lt;100 mg/dL</p>
-                                          <div class="grid md:grid-cols-2 gap-4">
-                                              <div>
-                                                  <p class="text-sm font-medium text-gray-700 mb-2">Nutritional Interventions:</p>
-                                                  <ul class="text-xs text-gray-600 space-y-1">
-                                                      <li>• Increase soluble fiber intake (oats, beans, apples)</li>
-                                                      <li>• Add plant sterols/stanols (2g daily)</li>
-                                                      <li>• Replace saturated fats with monounsaturated fats</li>
-                                                      <li>• Include fatty fish 2-3 times per week</li>
-                                                  </ul>
-                                              </div>
-                                              <div>
-                                                  <p class="text-sm font-medium text-gray-700 mb-2">Supplements to Consider:</p>
-                                                  <ul class="text-xs text-gray-600 space-y-1">
-                                                      <li>• Red yeast rice (consult physician)</li>
-                                                      <li>• Bergamot extract (500-1000mg daily)</li>
-                                                      <li>• Psyllium husk (5-10g daily)</li>
-                                                      <li>• Omega-3 EPA/DHA (2-3g daily)</li>
-                                                  </ul>
-                                              </div>
-                                          </div>
-                                      </div>
-                                  </div>
-                              </div>
+                              ${generateDynamicLDLCard()}
 
                               <div class="bg-white rounded-lg p-4 border border-red-200">
                                   <div class="flex items-start">
