@@ -15,6 +15,10 @@ import {
   buildHbA1cCardResult,
   type HbA1cCardResult
 } from './hba1c-dynamic'
+import {
+  buildOmega3CardResult,
+  type Omega3CardResult
+} from './omega3-dynamic'
 
 type Bindings = {
   DB: D1Database;
@@ -29,6 +33,7 @@ const ALLOWED_TENANTS = ['demo-a', 'demo-b', 'demo-c']
 // PREVIEW FEATURE FLAG: Dynamic Vitamin D Block Personalization (Fix Pack #2)
 const PREVIEW_DYNAMIC_VITAMIN_D = true
 const PREVIEW_DYNAMIC_HBA1C = true
+const PREVIEW_DYNAMIC_OMEGA3 = true
 
 // Helper function to validate biomarker ranges with gender awareness
 const validateBiomarkerValue = (value: number, range: string, gender?: string) => {
@@ -1876,6 +1881,113 @@ app.post('/api/report/preview/hba1c', async (c) => {
   }
 })
 
+// PREVIEW PROBE: Dynamic Omega-3 Recommendation (Fix Pack #4)
+app.post('/api/report/preview/omega3', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `omega3-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
+  try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    const { env } = c
+    if (env.DB) {
+      console.warn(`[${fingerprint}] ⚠️  DB binding present - probe will not access DB`)
+    }
+    
+    // Extract tenant from header or query param
+    const tenantFromHeader = c.req.header('X-Tenant-ID')
+    const tenantFromQuery = c.req.query('tenant')
+    const tenant = tenantFromHeader || tenantFromQuery
+    
+    // Validate tenant
+    if (!tenant) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+      }, 400)
+    }
+    
+    if (!ALLOWED_TENANTS.includes(tenant)) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Invalid tenant' }]
+      }, 400)
+    }
+    
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
+      }
+    }
+    
+    // Extract data from request body
+    const biomarkers = body.biomarkers || {}
+    const risk = body.risk || {}
+    const medicalHistory = body.medicalHistory || {}
+    const medications = body.medications || []
+    const dietary = body.dietary || {}
+    const supplements = body.supplements || []
+    
+    // Build Omega-3 card using shared helper
+    const cardResult = buildOmega3CardResult(
+      biomarkers,
+      risk,
+      medicalHistory,
+      medications,
+      dietary,
+      supplements
+    )
+    
+    // Sanitize and log safely (no PHI)
+    console.log(`[${fingerprint}] Omega-3 probe executed: tg=${cardResult.triglycerides != null ? 'present' : 'null'}, ascvd=${cardResult.ascvdRisk != null ? 'present' : 'null'}, tier=${cardResult.tier}, shown=${cardResult.shown}`)
+    
+    return c.json({
+      success: true,
+      shown: cardResult.shown,
+      triglycerides: cardResult.triglycerides,
+      ascvdRisk: cardResult.ascvdRisk,
+      omega3Index: cardResult.omega3Index,
+      tier: cardResult.tier,
+      priority: cardResult.priority,
+      html: cardResult.html,
+      fingerprint: fingerprint
+    })
+    
+  } catch (unexpectedError: any) {
+    console.error(`[${fingerprint}] Unexpected error in Omega-3 probe:`, unexpectedError)
+    return c.json({
+      success: false,
+      error: 'Probe failed',
+      details: [{ field: 'system', message: 'Internal probe error' }],
+      fingerprint: fingerprint
+    }, 500)
+  }
+})
+
 // Dynamic report route
 app.get('/report', async (c) => {
   const { env } = c
@@ -2282,6 +2394,35 @@ app.get('/report', async (c) => {
       
       // Use shared helper to build card
       const cardResult = buildHbA1cCardResult(hba1cValue, glucoseValue)
+      
+      return cardResult.shown ? cardResult.html : ''
+    }
+    
+    /**
+     * Generate dynamic Omega-3 card
+     * Returns HTML or empty string based on data availability and feature flag
+     */
+    function generateDynamicOmega3Card(): string {
+      if (!PREVIEW_DYNAMIC_OMEGA3) return ''
+      if (!comprehensiveData) return ''
+      
+      // Extract data from comprehensive structure
+      const biomarkers = comprehensiveData.biomarkers || {}
+      const risk = comprehensiveData.risk || {}
+      const medicalHistory = comprehensiveData.medicalHistory || {}
+      const medications = comprehensiveData.medications || []
+      const dietary = comprehensiveData.dietary || {}
+      const supplements = comprehensiveData.supplements || []
+      
+      // Use shared helper to build card
+      const cardResult = buildOmega3CardResult(
+        biomarkers,
+        risk,
+        medicalHistory,
+        medications,
+        dietary,
+        supplements
+      )
       
       return cardResult.shown ? cardResult.html : ''
     }
@@ -4685,6 +4826,7 @@ app.get('/report', async (c) => {
                                           </div>
                                           ${generateDynamicVitaminDCard()}
                                           ${generateDynamicHbA1cCard()}
+                                          ${generateDynamicOmega3Card()}
                                       </div>
                                   </div>
                               </div>
