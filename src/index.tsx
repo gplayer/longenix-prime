@@ -9,6 +9,12 @@ import {
   buildVitaminDCardResult,
   type VitaminDCardResult
 } from './vitaminD-dynamic'
+import {
+  extractHba1cValueFromComprehensiveData,
+  extractGlucoseValueFromComprehensiveData,
+  buildHbA1cCardResult,
+  type HbA1cCardResult
+} from './hba1c-dynamic'
 
 type Bindings = {
   DB: D1Database;
@@ -22,6 +28,7 @@ const ALLOWED_TENANTS = ['demo-a', 'demo-b', 'demo-c']
 
 // PREVIEW FEATURE FLAG: Dynamic Vitamin D Block Personalization (Fix Pack #2)
 const PREVIEW_DYNAMIC_VITAMIN_D = true
+const PREVIEW_DYNAMIC_HBA1C = true
 
 // Helper function to validate biomarker ranges with gender awareness
 const validateBiomarkerValue = (value: number, range: string, gender?: string) => {
@@ -1465,6 +1472,410 @@ app.post('/api/report/preview/vitaminD', async (c) => {
   }
 })
 
+// PREVIEW: HbA1c/Glucose Probe Endpoint (Dynamic Fix Pack #3)
+app.post('/api/report/preview/hba1c', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `hba1c-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
+  try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    // Log warning if DB binding present but don't fail (allows local dev/preview)
+    const { env } = c
+    if (env.DB) {
+      console.warn(`[${fingerprint}] ⚠️  DB binding present - probe will not access DB`)
+    }
+    
+    // Extract tenant from header or query param
+    const tenantFromHeader = c.req.header('X-Tenant-ID')
+    const tenantFromQuery = c.req.query('tenant')
+    const tenant = tenantFromHeader || tenantFromQuery
+    
+    // Validate tenant
+    if (!tenant) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+      }, 400)
+    }
+    
+    if (!ALLOWED_TENANTS.includes(tenant)) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Invalid tenant' }]
+      }, 400)
+    }
+    
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
+      }
+    }
+    
+    // Validate shape: biomarkers must be object if present
+    if (body.biomarkers !== undefined && (typeof body.biomarkers !== 'object' || body.biomarkers === null || Array.isArray(body.biomarkers))) {
+      console.error(`[${fingerprint}] Invalid biomarkers shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - biomarkers must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    // SELF-CONTAINED HELPERS: Define locally to avoid any undefined references
+    
+    // Helper: Extract HbA1c value from biomarkers object
+    function getHba1cValueLocal(biomarkers: any): number | null {
+      if (!biomarkers || typeof biomarkers !== 'object') return null
+      
+      const hba1cKeys = ['hba1c', 'HbA1c', 'HBA1C', 'a1c', 'A1C', 'hemoglobinA1c', 'glycated_hemoglobin']
+      
+      for (const key of hba1cKeys) {
+        const value = biomarkers[key]
+        if (value != null && !isNaN(Number(value))) {
+          const numValue = Number(value)
+          // Sanity check: HbA1c should be between 3% and 15%
+          if (numValue >= 3 && numValue <= 15) {
+            return numValue
+          }
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Extract fasting glucose value from biomarkers object
+    function getGlucoseValueLocal(biomarkers: any): number | null {
+      if (!biomarkers || typeof biomarkers !== 'object') return null
+      
+      const glucoseKeys = ['glucose', 'fastingGlucose', 'fasting_glucose', 'bloodGlucose', 'blood_glucose', 'fpg', 'FPG']
+      
+      for (const key of glucoseKeys) {
+        const value = biomarkers[key]
+        if (value != null && !isNaN(Number(value))) {
+          const numValue = Number(value)
+          // Sanity check: Fasting glucose should be between 40 and 400 mg/dL
+          if (numValue >= 40 && numValue <= 400) {
+            return numValue
+          }
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Classify glycemic status into clinical tiers
+    function classifyGlycemicStatusLocal(hba1c: number | null, glucose: number | null): string | null {
+      // Priority: Use HbA1c if available (gold standard)
+      if (hba1c != null) {
+        if (hba1c >= 8.0) {
+          return 'high_risk_diabetes'
+        } else if (hba1c >= 6.5) {
+          return 'diabetes'
+        } else if (hba1c >= 6.0) {
+          return 'prediabetes'
+        } else if (hba1c >= 5.7) {
+          return 'elevated_normal'
+        } else {
+          return 'normal'
+        }
+      }
+      
+      // Fallback: Use glucose if HbA1c not available
+      if (glucose != null) {
+        if (glucose >= 200) {
+          return 'high_risk_diabetes'
+        } else if (glucose >= 126) {
+          return 'diabetes'
+        } else if (glucose >= 110) {
+          return 'prediabetes'
+        } else if (glucose >= 100) {
+          return 'elevated_normal'
+        } else {
+          return 'normal'
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Generate dynamic HbA1c card with gating logic
+    function generateDynamicHbA1cCardLocal(hba1c: number | null, glucose: number | null): { shown: boolean; hba1cValue: number | null; glucoseValue: number | null; status: string | null; html: string } {
+      const status = classifyGlycemicStatusLocal(hba1c, glucose)
+      
+      // Hide if no data or if normal (no action needed)
+      if (status === null || status === 'normal') {
+        return { shown: false, hba1cValue: hba1c, glucoseValue: glucose, status, html: '' }
+      }
+      
+      // Generate HTML based on status
+      let priorityClass = 'border-yellow-200'
+      let iconBg = 'bg-yellow-100'
+      let iconColor = 'text-yellow-600'
+      let priorityLabel = ''
+      let title = ''
+      let recommendations = ''
+      
+      const hba1cDisplay = hba1c != null ? `${hba1c.toFixed(1)}%` : 'Not measured'
+      const glucoseDisplay = glucose != null ? `${Math.round(glucose)} mg/dL` : 'Not measured'
+      
+      switch (status) {
+        case 'elevated_normal':
+          priorityLabel = '⚠️ WATCH'
+          title = 'Glucose Elevated - Increased Diabetes Risk'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              <strong>HbA1c:</strong> ${hba1cDisplay} (Normal: < 5.7%) &nbsp;&nbsp;
+                              <strong>Fasting Glucose:</strong> ${glucoseDisplay} (Normal: < 100 mg/dL)
+                          </p>
+                          <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-yellow-800 mb-1">⚠️ Increased Risk</p>
+                              <p class="text-xs text-yellow-700">You are at increased risk for developing type 2 diabetes.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Recommended Actions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Weight management: 5-7% weight loss if BMI > 25</li>
+                                      <li>• Physical activity: 150 minutes/week moderate exercise</li>
+                                      <li>• Low glycemic index diet</li>
+                                      <li>• Increase fiber intake (25-30g daily)</li>
+                                      <li>• Reduce refined carbs and added sugars</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Monitoring:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Retest HbA1c in 6 months</li>
+                                      <li>• Consider consultation with registered dietitian</li>
+                                      <li>• Monitor weight and blood pressure</li>
+                                  </ul>
+                              </div>
+                          </div>
+          `
+          break
+          
+        case 'prediabetes':
+          priorityClass = 'border-orange-200'
+          iconBg = 'bg-orange-100'
+          iconColor = 'text-orange-600'
+          priorityLabel = '🟠 HIGH PRIORITY'
+          title = 'Prediabetes - Urgent Lifestyle Intervention Needed'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              <strong>HbA1c:</strong> ${hba1cDisplay} (Prediabetes: 6.0-6.4%) &nbsp;&nbsp;
+                              <strong>Fasting Glucose:</strong> ${glucoseDisplay} (Prediabetes: 110-125 mg/dL)
+                          </p>
+                          <div class="bg-orange-50 border border-orange-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-orange-800 mb-1">🟠 High Risk of Progression</p>
+                              <p class="text-xs text-orange-700">Aggressive intervention can REVERSE this condition and prevent diabetes.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Intensive Interventions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong>Weight loss goal: 7-10% of body weight</strong></li>
+                                      <li>• <strong>Exercise: 300 min/week for best results</strong></li>
+                                      <li>• Low glycemic diet with calorie restriction</li>
+                                      <li>• High fiber (30-35g daily)</li>
+                                      <li>• Eliminate sugary beverages</li>
+                                      <li>• Include resistance training 2-3x/week</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Medical Follow-Up:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong>Discuss metformin with physician</strong> (especially if BMI ≥ 35)</li>
+                                      <li>• Retest HbA1c in 3 months</li>
+                                      <li>• Screen for complications (eyes, kidneys)</li>
+                                      <li>• Check lipid panel and blood pressure</li>
+                                      <li>• Consider continuous glucose monitor (CGM)</li>
+                                  </ul>
+                              </div>
+                          </div>
+          `
+          break
+          
+        case 'diabetes':
+          priorityClass = 'border-red-200'
+          iconBg = 'bg-red-100'
+          iconColor = 'text-red-600'
+          priorityLabel = '🔴 URGENT'
+          title = 'Diabetes Range - Immediate Physician Referral Required'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              <strong>HbA1c:</strong> ${hba1cDisplay} (Diabetes: ≥ 6.5%) &nbsp;&nbsp;
+                              <strong>Fasting Glucose:</strong> ${glucoseDisplay} (Diabetes: ≥ 126 mg/dL)
+                          </p>
+                          <div class="bg-red-50 border border-red-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-red-800 mb-1">🔴 URGENT: Immediate Physician Referral</p>
+                              <p class="text-xs text-red-700">Your labs indicate type 2 diabetes. Do NOT attempt self-management without physician guidance.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Immediate Next Steps:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong>Schedule physician appointment THIS WEEK</strong></li>
+                                      <li>• Confirm diagnosis with repeat HbA1c or fasting glucose</li>
+                                      <li>• Discuss medication options (metformin, GLP-1 agonists, etc.)</li>
+                                      <li>• Comprehensive diabetes education program</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Complication Screening:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Eye exam (retinopathy screening)</li>
+                                      <li>• Kidney function tests (creatinine, urine albumin)</li>
+                                      <li>• Foot examination (neuropathy check)</li>
+                                      <li>• Lipid panel (cardiovascular risk)</li>
+                                      <li>• Blood pressure monitoring</li>
+                                  </ul>
+                              </div>
+                          </div>
+                          <div class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded">
+                              <p class="text-xs text-gray-600">
+                                  <strong>Note:</strong> This report is NOT a diabetes diagnosis tool. Diabetes must be confirmed by a physician with repeat testing.
+                              </p>
+                          </div>
+          `
+          break
+          
+        case 'high_risk_diabetes':
+          priorityClass = 'border-red-200'
+          iconBg = 'bg-red-100'
+          iconColor = 'text-red-600'
+          priorityLabel = '🔴 CRITICAL'
+          title = 'Severe Hyperglycemia - Urgent Medical Attention Required'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              <strong>HbA1c:</strong> ${hba1cDisplay} (High-Risk: ≥ 8.0%) &nbsp;&nbsp;
+                              <strong>Fasting Glucose:</strong> ${glucoseDisplay} (High-Risk: ≥ 200 mg/dL)
+                          </p>
+                          <div class="bg-red-50 border border-red-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-red-800 mb-1">🔴 CRITICAL: Severe Hyperglycemia</p>
+                              <p class="text-xs text-red-700 font-bold">⚠️ CALL YOUR DOCTOR TODAY OR GO TO URGENT CARE</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Immediate Action:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong class="text-red-600">Contact physician TODAY</strong></li>
+                                      <li>• Risk of diabetic ketoacidosis (DKA) or hyperosmolar state</li>
+                                      <li>• May require immediate medication adjustment or hospitalization</li>
+                                      <li>• DO NOT delay medical care</li>
+                                      <li>• DO NOT attempt lifestyle changes alone</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Warning Symptoms (Seek Emergency Care):</p>
+                                  <ul class="text-xs text-red-600 space-y-1">
+                                      <li>• Excessive thirst or urination</li>
+                                      <li>• Unexplained weight loss</li>
+                                      <li>• Blurred vision</li>
+                                      <li>• Confusion or difficulty concentrating</li>
+                                      <li>• Fruity breath odor</li>
+                                      <li>• Nausea or vomiting</li>
+                                  </ul>
+                              </div>
+                          </div>
+                          <div class="mt-3 p-2 bg-red-50 border border-red-200 rounded">
+                              <p class="text-xs text-red-700 font-semibold">
+                                  ⚠️ IMPORTANT: If you have symptoms of hyperglycemia (excessive thirst, frequent urination, blurred vision), seek emergency medical care immediately.
+                              </p>
+                          </div>
+          `
+          break
+          
+        default:
+          return { shown: false, hba1cValue: hba1c, glucoseValue: glucose, status, html: '' }
+      }
+      
+      const html = `
+    <section class="mt-4 p-4 bg-white border ${priorityClass} rounded-lg shadow-sm">
+      <div class="flex items-start gap-3">
+        <div class="${iconBg} ${iconColor} p-2 rounded-full">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-base font-semibold text-gray-800">
+              ${title}
+            </h3>
+            <span class="text-xs font-bold ${iconColor} px-2 py-1 rounded">${priorityLabel}</span>
+          </div>
+          ${recommendations}
+          <p class="text-xs text-gray-500 mt-3 italic">(Preview dynamic - Fix Pack #3)</p>
+        </div>
+      </div>
+    </section>
+      `
+      
+      return {
+        shown: true,
+        hba1cValue: hba1c,
+        glucoseValue: glucose,
+        status,
+        html
+      }
+    }
+    
+    // Extract values and generate card
+    const biomarkers = body.biomarkers || {}
+    const hba1c = getHba1cValueLocal(biomarkers)
+    const glucose = getGlucoseValueLocal(biomarkers)
+    const cardResult = generateDynamicHbA1cCardLocal(hba1c, glucose)
+    
+    // Sanitize and log safely (no PHI)
+    console.log(`[${fingerprint}] HbA1c probe executed: hba1c=${hba1c != null ? 'present' : 'null'}, glucose=${glucose != null ? 'present' : 'null'}, status=${cardResult.status}, shown=${cardResult.shown}`)
+    
+    return c.json({
+      success: true,
+      shown: cardResult.shown,
+      hba1cValue: cardResult.hba1cValue,
+      glucoseValue: cardResult.glucoseValue,
+      status: cardResult.status,
+      html: cardResult.html,
+      fingerprint: fingerprint
+    })
+    
+  } catch (unexpectedError: any) {
+    console.error(`[${fingerprint}] Unexpected error in HbA1c probe:`, unexpectedError)
+    return c.json({
+      success: false,
+      error: 'Probe failed',
+      details: [{ field: 'system', message: 'Internal probe error' }],
+      fingerprint: fingerprint
+    }, 500)
+  }
+})
+
 // Dynamic report route
 app.get('/report', async (c) => {
   const { env } = c
@@ -1831,6 +2242,46 @@ app.get('/report', async (c) => {
       
       // Use shared helper to build card
       const cardResult = buildVitaminDCardResult(vitaminDValue)
+      
+      return cardResult.shown ? cardResult.html : ''
+    }
+    
+    /**
+     * Get HbA1c value from comprehensive data
+     * Returns null if feature flag disabled or no data available
+     */
+    function getHba1cValue(): number | null {
+      if (!PREVIEW_DYNAMIC_HBA1C) return null
+      if (!comprehensiveData) return null
+      
+      // Use the imported shared helper
+      return extractHba1cValueFromComprehensiveData(comprehensiveData)
+    }
+    
+    /**
+     * Get fasting glucose value from comprehensive data
+     * Returns null if feature flag disabled or no data available
+     */
+    function getGlucoseValue(): number | null {
+      if (!PREVIEW_DYNAMIC_HBA1C) return null
+      if (!comprehensiveData) return null
+      
+      // Use the imported shared helper
+      return extractGlucoseValueFromComprehensiveData(comprehensiveData)
+    }
+    
+    /**
+     * Generate dynamic HbA1c/Glucose card
+     * Returns HTML or empty string based on data availability and feature flag
+     */
+    function generateDynamicHbA1cCard(): string {
+      if (!PREVIEW_DYNAMIC_HBA1C) return ''
+      
+      const hba1cValue = getHba1cValue()
+      const glucoseValue = getGlucoseValue()
+      
+      // Use shared helper to build card
+      const cardResult = buildHbA1cCardResult(hba1cValue, glucoseValue)
       
       return cardResult.shown ? cardResult.html : ''
     }
@@ -4233,6 +4684,7 @@ app.get('/report', async (c) => {
                                               </ul>
                                           </div>
                                           ${generateDynamicVitaminDCard()}
+                                          ${generateDynamicHbA1cCard()}
                                       </div>
                                   </div>
                               </div>
