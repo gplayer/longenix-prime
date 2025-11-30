@@ -6989,17 +6989,47 @@ app.post('/api/assessment/comprehensive', async (c) => {
   const dryRun = (env.DRY_RUN || 'true').toLowerCase() === 'true'
   
   try {
+    // DIAGNOSTIC: Log incoming data structure (non-PHI)
+    console.log('[DIAGNOSTIC] Assessment submission - keys received:', Object.keys(assessmentData).join(', '))
+    console.log('[DIAGNOSTIC] Has nested demographics?', 'demographics' in assessmentData)
+    console.log('[DIAGNOSTIC] Top-level fullName?', 'fullName' in assessmentData)
+    console.log('[DIAGNOSTIC] Top-level dateOfBirth?', 'dateOfBirth' in assessmentData)
+    console.log('[DIAGNOSTIC] Top-level gender?', 'gender' in assessmentData)
+    
     // Enhanced data validation and structure handling
     const demo = assessmentData.demographics || assessmentData
     const clinical = assessmentData.clinical || assessmentData
     const biomarkers = assessmentData.biomarkers || assessmentData
     
+    // DIAGNOSTIC: Log what we're validating against
+    console.log('[DIAGNOSTIC] Validating demo object - has fullName?', 'fullName' in demo, 'value type:', typeof demo.fullName)
+    console.log('[DIAGNOSTIC] Validating demo object - has dateOfBirth?', 'dateOfBirth' in demo, 'value type:', typeof demo.dateOfBirth)
+    console.log('[DIAGNOSTIC] Validating demo object - has gender?', 'gender' in demo, 'value type:', typeof demo.gender)
+    
     // Validate required demographics data
-    if (!demo.fullName || !demo.dateOfBirth || !demo.gender) {
+    // Trim strings and check for actual content (not just whitespace or empty strings)
+    const fullNameValue = (demo.fullName || '').toString().trim()
+    const dateOfBirthValue = (demo.dateOfBirth || '').toString().trim()
+    const genderValue = (demo.gender || '').toString().trim()
+    
+    if (!fullNameValue || !dateOfBirthValue || !genderValue) {
+      console.error('[DIAGNOSTIC] Validation failed - missing required fields')
+      console.error('[DIAGNOSTIC] demo.fullName:', demo.fullName, '(trimmed:', fullNameValue, ')')
+      console.error('[DIAGNOSTIC] demo.dateOfBirth:', demo.dateOfBirth, '(trimmed:', dateOfBirthValue, ')')
+      console.error('[DIAGNOSTIC] demo.gender:', demo.gender, '(trimmed:', genderValue, ')')
       return c.json({
         success: false,
         error: 'Missing required demographic data (fullName, dateOfBirth, gender)',
-        received: Object.keys(assessmentData)
+        received: Object.keys(assessmentData),
+        diagnostic: {
+          demoKeys: Object.keys(demo),
+          hasFullName: 'fullName' in demo,
+          hasDateOfBirth: 'dateOfBirth' in demo,
+          hasGender: 'gender' in demo,
+          fullNameValue: fullNameValue || 'EMPTY',
+          dateOfBirthValue: dateOfBirthValue || 'EMPTY',
+          genderValue: genderValue || 'EMPTY'
+        }
       }, 400)
     }
     
