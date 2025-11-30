@@ -2,6 +2,23 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { BiologicalAgeCalculator, DiseaseRiskCalculator, HallmarksOfAgingCalculator, HealthOptimizationCalculator } from './medical-algorithms'
+import { echoPayload, validateDemoPayload, devLog } from './dev/scratchpad'
+import { 
+  extractVitaminDValue,
+  extractVitaminDValueFromComprehensiveData,
+  buildVitaminDCardResult,
+  type VitaminDCardResult
+} from './vitaminD-dynamic'
+import {
+  extractHba1cValueFromComprehensiveData,
+  extractGlucoseValueFromComprehensiveData,
+  buildHbA1cCardResult,
+  type HbA1cCardResult
+} from './hba1c-dynamic'
+import {
+  buildOmega3CardResult,
+  type Omega3CardResult
+} from './omega3-dynamic'
 
 type Bindings = {
   DB: D1Database;
@@ -12,6 +29,11 @@ type Bindings = {
 
 // PREVIEW: Allowed tenant identifiers
 const ALLOWED_TENANTS = ['demo-a', 'demo-b', 'demo-c']
+
+// PREVIEW FEATURE FLAG: Dynamic Vitamin D Block Personalization (Fix Pack #2)
+const PREVIEW_DYNAMIC_VITAMIN_D = true
+const PREVIEW_DYNAMIC_HBA1C = true
+const PREVIEW_DYNAMIC_OMEGA3 = true
 
 // Helper function to validate biomarker ranges with gender awareness
 const validateBiomarkerValue = (value: number, range: string, gender?: string) => {
@@ -978,6 +1000,1304 @@ app.get('/api/tenants/validate', async (c) => {
   })
 })
 
+// PREVIEW: Dev/Sandbox endpoints for safe experimentation
+// GET /api/dev/status - Returns development environment status (no tenant required)
+app.get('/api/dev/status', async (c) => {
+  const { env } = c
+  
+  // Get tenant if provided (optional for status endpoint)
+  const tenant = c.req.header('X-Tenant-ID') || c.req.query('tenant') || null
+  
+  // Get DRY_RUN status
+  const dryRun = (env.DRY_RUN || 'true').toLowerCase() === 'true'
+  
+  return c.json({
+    ok: true,
+    env: 'preview',
+    dryRun: dryRun,
+    tenant: tenant,
+    time: new Date().toISOString()
+  })
+})
+
+// PREVIEW: Tenant middleware for /api/dev/try endpoint
+app.use('/api/dev/try', async (c, next) => {
+  // Extract tenant from header or query param
+  const tenantFromHeader = c.req.header('X-Tenant-ID')
+  const tenantFromQuery = c.req.query('tenant')
+  const tenant = tenantFromHeader || tenantFromQuery
+  
+  // Validate tenant
+  if (!tenant) {
+    return c.json({
+      success: false,
+      error: 'Validation failed',
+      details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+    }, 400)
+  }
+  
+  if (!ALLOWED_TENANTS.includes(tenant)) {
+    return c.json({
+      success: false,
+      error: 'Validation failed',
+      details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+    }, 400)
+  }
+  
+  // Set tenant in context for downstream handlers
+  c.set('tenant', tenant)
+  await next()
+})
+
+// POST /api/dev/try - Try a demo request with tenant validation
+app.post('/api/dev/try', async (c) => {
+  const { env } = c
+  
+  try {
+    // Read and parse JSON body
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'body', message: 'Could not read request body' }]
+      }, 400)
+    }
+    
+    let body: any
+    try {
+      body = JSON.parse(rawText)
+    } catch (parseError) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'body', message: 'Request body must be valid JSON' }]
+      }, 400)
+    }
+    
+    // Validate payload using scratchpad helper
+    const validation = validateDemoPayload(body)
+    if (!validation.valid) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: validation.errors
+      }, 400)
+    }
+    
+    // Get tenant from context (set by tenant middleware)
+    const tenant = c.get('tenant')
+    
+    // Get DRY_RUN status
+    const dryRun = (env.DRY_RUN || 'true').toLowerCase() === 'true'
+    
+    // Use the scratchpad helper to echo payload
+    const echo = echoPayload({ demo: body.demo, note: body.note })
+    
+    // Log for development (safe - no DB write)
+    devLog('POST /api/dev/try', { tenant, body, dryRun })
+    
+    // Return success with echo
+    return c.json({
+      ok: true,
+      tenant: tenant,
+      echo: echo.received,
+      dryRun: dryRun,
+      timestamp: echo.timestamp
+    })
+    
+  } catch (error) {
+    // Catch-all error handler
+    const err = error as Error
+    return c.json({
+      success: false,
+      error: 'Internal error',
+      details: [{ field: '_', message: err.message || 'Unknown error' }]
+    }, 500)
+  }
+})
+
+// ========== PREVIEW: LDL Dynamic Probe (Fix Pack #1) ==========
+
+// PREVIEW: LDL Probe Endpoint (Dynamic Fix Pack #1)
+// Route: POST /api/report/preview/ldl
+// Auth: Basic Auth (same as other endpoints)
+// Tenant: X-Tenant-ID required
+// Purpose: Test LDL dynamic tiering logic with custom data
+// SAFETY: NO DB WRITES - returns JSON analysis only
+app.post('/api/report/preview/ldl', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `ldl-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
+  try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    // Log warning if DB binding present but don't fail (allows local dev/preview)
+    const { env } = c
+    if (env.DB) {
+      console.warn(`[${fingerprint}] ⚠️  DB binding present - probe will not access DB`)
+    }
+    
+    // Extract tenant from header or query param
+    const tenantFromHeader = c.req.header('X-Tenant-ID')
+    const tenantFromQuery = c.req.query('tenant')
+    const tenant = tenantFromHeader || tenantFromQuery
+    
+    // Validate tenant
+    if (!tenant) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+      }, 400)
+    }
+    
+    if (!ALLOWED_TENANTS.includes(tenant)) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Invalid tenant' }]
+      }, 400)
+    }
+    
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
+      }
+    }
+    
+    // Validate shape: biomarkers and risk must be objects if present
+    if (body.biomarkers !== undefined && (typeof body.biomarkers !== 'object' || body.biomarkers === null || Array.isArray(body.biomarkers))) {
+      console.error(`[${fingerprint}] Invalid biomarkers shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - biomarkers must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    if (body.risk !== undefined && (typeof body.risk !== 'object' || body.risk === null || Array.isArray(body.risk))) {
+      console.error(`[${fingerprint}] Invalid risk shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - risk must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    // SELF-CONTAINED HELPERS: Define locally to avoid any undefined references
+    
+    // Helper: Extract LDL cholesterol value from biomarkers object
+    function getLDLValueLocal(biomarkers: any): number | null {
+      if (!biomarkers || typeof biomarkers !== 'object') return null
+      
+      const ldlKeys = ['ldl', 'LDL', 'ldl_cholesterol', 'ldlCholesterol', 'LDL_Cholesterol', 'ldl_c', 'LDLC']
+      
+      for (const key of ldlKeys) {
+        const value = biomarkers[key]
+        if (value != null && !isNaN(Number(value))) {
+          const numValue = Number(value)
+          // Sanity check: LDL typically 20-300 mg/dL
+          if (numValue >= 20 && numValue <= 500) {
+            return numValue
+          }
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Extract ASCVD risk from risk object
+    function getASCVDRiskLocal(risk: any): number | null {
+      if (!risk || typeof risk !== 'object') return null
+      
+      const riskKeys = ['ascvdRisk', 'ascvd_risk', 'ASCVD_Risk', 'ascvd', 'ASCVD', 'tenYearRisk']
+      
+      for (const key of riskKeys) {
+        const value = risk[key]
+        if (value != null && !isNaN(Number(value))) {
+          const numValue = Number(value)
+          // ASCVD risk is a percentage (0.0 to 1.0 or 0 to 100)
+          // Normalize to 0.0-1.0 range
+          if (numValue >= 0 && numValue <= 1) {
+            return numValue
+          } else if (numValue > 1 && numValue <= 100) {
+            return numValue / 100
+          }
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Determine LDL target based on ASCVD risk
+    function getLDLTargetLocal(ascvdRisk: number | null): number {
+      if (ascvdRisk == null) {
+        // Default: assume intermediate risk if unknown
+        return 100
+      }
+      
+      // ACC/AHA Guidelines:
+      // High risk (≥ 20%): LDL target < 70 mg/dL
+      // Intermediate risk (7.5% - 20%): LDL target < 100 mg/dL
+      // Low risk (< 7.5%): LDL target < 130 mg/dL
+      
+      if (ascvdRisk >= 0.20) {
+        return 70  // High risk
+      } else if (ascvdRisk >= 0.075) {
+        return 100  // Intermediate risk
+      } else {
+        return 130  // Low risk
+      }
+    }
+    
+    // Helper: Determine if LDL card should be shown (gating logic)
+    function shouldShowLDLCardLocal(ldlValue: number | null, ascvdRisk: number | null): boolean {
+      // Show card if:
+      // 1. LDL > 100 mg/dL (borderline high or above)
+      // OR
+      // 2. ASCVD risk ≥ 7.5% (intermediate or high risk)
+      
+      if (ldlValue != null && ldlValue > 100) {
+        return true
+      }
+      
+      if (ascvdRisk != null && ascvdRisk >= 0.075) {
+        return true
+      }
+      
+      return false
+    }
+    
+    // Helper: Generate priority label based on LDL and ASCVD risk
+    function getPriorityLabelLocal(ldlValue: number | null, ascvdRisk: number | null, ldlTarget: number): string {
+      // Determine urgency based on how far above target
+      
+      if (ldlValue == null) {
+        return 'MEDIUM PRIORITY'
+      }
+      
+      const excessLDL = ldlValue - ldlTarget
+      
+      // High priority if:
+      // - LDL is ≥ 30 mg/dL above target
+      // - High ASCVD risk (≥ 20%) with elevated LDL
+      if (excessLDL >= 30 || (ascvdRisk != null && ascvdRisk >= 0.20 && ldlValue > ldlTarget)) {
+        return 'HIGH PRIORITY'
+      }
+      
+      return 'MEDIUM PRIORITY'
+    }
+    
+    // Helper: Generate dynamic LDL card HTML
+    function generateDynamicLDLCardLocal(ldlValue: number | null, ascvdRisk: number | null): { shown: boolean; ldlValue: number | null; ascvdRisk: number | null; ldlTarget: number | null; html: string } {
+      const shown = shouldShowLDLCardLocal(ldlValue, ascvdRisk)
+      
+      if (!shown) {
+        return { shown: false, ldlValue, ascvdRisk, ldlTarget: null, html: '' }
+      }
+      
+      const ldlTarget = getLDLTargetLocal(ascvdRisk)
+      const priorityLabel = getPriorityLabelLocal(ldlValue, ascvdRisk, ldlTarget)
+      
+      // Determine styling based on priority
+      const isHighPriority = priorityLabel === 'HIGH PRIORITY'
+      const priorityClass = isHighPriority ? 'border-red-200' : 'border-orange-200'
+      const iconBg = isHighPriority ? 'bg-red-100' : 'bg-orange-100'
+      const iconColor = isHighPriority ? 'text-red-600' : 'text-orange-600'
+      const priorityBadge = isHighPriority ? '🔴 HIGH PRIORITY' : '🟠 MEDIUM PRIORITY'
+      
+      // Build HTML card
+      let html = `
+        <div class="bg-white border ${priorityClass} rounded-lg p-6 mb-6">
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex items-center">
+              <div class="${iconBg} ${iconColor} rounded-full p-3 mr-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-gray-800">LDL Cholesterol Management</h3>
+                <p class="text-sm text-gray-500">${priorityBadge}</p>
+              </div>
+            </div>
+          </div>
+      `
+      
+      // Current status
+      html += '<div class="mb-4">'
+      if (ldlValue != null) {
+        html += `<p class="text-sm text-gray-600 mb-2">Current LDL: <strong>${Math.round(ldlValue)} mg/dL</strong></p>`
+      }
+      if (ascvdRisk != null) {
+        const riskPercent = Math.round(ascvdRisk * 100)
+        html += `<p class="text-sm text-gray-600 mb-2">10-Year ASCVD Risk: <strong>${riskPercent}%</strong></p>`
+      }
+      html += `<p class="text-sm text-gray-600">Target LDL: <strong>&lt; ${ldlTarget} mg/dL</strong></p>`
+      html += '</div>'
+      
+      // Recommendations
+      html += '<div class="bg-gray-50 rounded p-4 mb-4">'
+      html += '<p class="text-sm font-medium text-gray-700 mb-2">Recommended Actions:</p>'
+      html += '<ul class="text-xs text-gray-600 space-y-1">'
+      
+      if (isHighPriority) {
+        html += '<li>• <strong>Urgent:</strong> Schedule physician appointment THIS WEEK</li>'
+        html += '<li>• Discuss statin therapy or medication adjustment</li>'
+        html += '<li>• Consider high-intensity statin (atorvastatin 40-80mg or rosuvastatin 20-40mg)</li>'
+      } else {
+        html += '<li>• Schedule physician appointment within 2-4 weeks</li>'
+        html += '<li>• Discuss lipid-lowering medications if lifestyle changes insufficient</li>'
+      }
+      
+      html += '<li>• Adopt heart-healthy diet (Mediterranean or DASH diet)</li>'
+      html += '<li>• Increase physical activity (150 min/week moderate exercise)</li>'
+      html += '<li>• Reduce saturated fat intake (&lt; 7% of calories)</li>'
+      html += '<li>• Consider adding plant sterols (2g/day)</li>'
+      html += '<li>• Retest lipid panel in 3 months</li>'
+      html += '</ul>'
+      html += '</div>'
+      
+      // Disclaimer
+      html += '<div class="border-t border-gray-200 pt-3">'
+      html += '<p class="text-xs text-gray-500 italic">This recommendation is for educational purposes only and does not replace physician judgment. Consult your healthcare provider before making changes to medications or treatment plans.</p>'
+      html += '</div>'
+      
+      html += '</div>'
+      
+      return { shown: true, ldlValue, ascvdRisk, ldlTarget, html }
+    }
+    
+    // Extract values from request body
+    const ldlValue = getLDLValueLocal(body.biomarkers)
+    const ascvdRisk = getASCVDRiskLocal(body.risk)
+    
+    // Generate LDL card
+    const result = generateDynamicLDLCardLocal(ldlValue, ascvdRisk)
+    
+    // Log probe execution (non-sensitive info only)
+    console.log(`[${fingerprint}] LDL probe executed: ldl=${ldlValue ? 'present' : 'null'}, ascvd=${ascvdRisk ? 'present' : 'null'}, target=${result.ldlTarget}, shown=${result.shown}`)
+    
+    // Return successful probe result
+    return c.json({
+      success: true,
+      shown: result.shown,
+      ldlValue: result.ldlValue,
+      ascvdRisk: result.ascvdRisk,
+      ldlTarget: result.ldlTarget,
+      html: result.html,
+      fingerprint: fingerprint
+    }, 200)
+    
+  } catch (error) {
+    // Catch-all error handler
+    const err = error as Error
+    console.error(`[${fingerprint}] LDL probe error:`, err.message)
+    return c.json({
+      success: false,
+      error: 'Probe failed',
+      details: [{ field: '_', message: err.message || 'Unknown error' }],
+      fingerprint: fingerprint
+    }, 500)
+  }
+})
+
+// ========== PREVIEW: Vitamin D Dynamic Helpers (Fix Pack #2) ==========
+// Note: Actual helper functions are defined inside the report route
+// where they have access to comprehensiveData. See generateDynamicVitaminDCard() below.
+
+// PREVIEW: Vitamin D Probe Endpoint (Dynamic Fix Pack #2)
+// Route: POST /api/report/preview/vitaminD
+// Auth: Basic Auth (same as other endpoints)
+// Tenant: X-Tenant-ID required
+// Purpose: Test Vitamin D dynamic tiering logic with custom data
+// SAFETY: NO DB WRITES - returns JSON analysis only
+app.post('/api/report/preview/vitaminD', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `vitd-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
+  try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    // Log warning if DB binding present but don't fail (allows local dev/preview)
+    const { env } = c
+    if (env.DB) {
+      console.warn(`[${fingerprint}] ⚠️  DB binding present - probe will not access DB`)
+    }
+    
+    // Extract tenant from header or query param
+    const tenantFromHeader = c.req.header('X-Tenant-ID')
+    const tenantFromQuery = c.req.query('tenant')
+    const tenant = tenantFromHeader || tenantFromQuery
+    
+    // Validate tenant
+    if (!tenant) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+      }, 400)
+    }
+    
+    if (!ALLOWED_TENANTS.includes(tenant)) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Invalid tenant' }]
+      }, 400)
+    }
+    
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
+      }
+    }
+    
+    // Validate shape: biomarkers must be object if present
+    if (body.biomarkers !== undefined && (typeof body.biomarkers !== 'object' || body.biomarkers === null || Array.isArray(body.biomarkers))) {
+      console.error(`[${fingerprint}] Invalid biomarkers shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - biomarkers must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    // SELF-CONTAINED HELPERS: Define locally to avoid any undefined references
+    
+    // Helper: Extract Vitamin D value from biomarkers object
+    function getVitaminDValueLocal(biomarkers: any): number | null {
+      if (!biomarkers || typeof biomarkers !== 'object') return null
+      
+      const vitDKeys = ['vitaminD', 'vitamin_d', 'vitamin_D', 'VitaminD', 'VITAMIN_D', '25OHD', '25_oh_d']
+      
+      for (const key of vitDKeys) {
+        const value = biomarkers[key]
+        if (value != null && !isNaN(Number(value))) {
+          return Number(value)
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Classify Vitamin D status into clinical tiers
+    function classifyVitaminDStatusLocal(value: number | null): string | null {
+      if (value == null) return null
+      
+      if (value < 20) {
+        return 'severe_deficiency'
+      } else if (value < 30) {
+        return 'insufficiency'
+      } else if (value < 50) {
+        return 'low_normal'
+      } else if (value <= 80) {
+        return 'optimal'
+      } else {
+        return 'high'
+      }
+    }
+    
+    // Helper: Generate dynamic Vitamin D card with gating logic
+    function generateDynamicVitaminDCardLocal(vitaminDValue: number | null): { shown: boolean; vitaminDValue: number | null; status: string | null; html: string } {
+      if (vitaminDValue == null) {
+        return { shown: false, vitaminDValue: null, status: null, html: '' }
+      }
+      
+      const status = classifyVitaminDStatusLocal(vitaminDValue)
+      let priorityClass = 'border-yellow-200'
+      let iconBg = 'bg-yellow-100'
+      let iconColor = 'text-yellow-600'
+      let priorityLabel = ''
+      let recommendations = ''
+      
+      switch (status) {
+        case 'severe_deficiency':
+          priorityClass = 'border-red-200'
+          iconBg = 'bg-red-100'
+          iconColor = 'text-red-600'
+          priorityLabel = 'HIGH PRIORITY'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Severe Deficiency - Normal: 30-100 ng/mL)
+                          </p>
+                          <div class="bg-red-50 border border-red-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-red-800 mb-1">⚠️ Immediate Action Required</p>
+                              <p class="text-xs text-red-700">Severe deficiency requires aggressive repletion and close monitoring.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Recommended Actions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• High-dose D3 supplementation (5,000-10,000 IU daily)</li>
+                                      <li>• Consider loading dose if clinically appropriate</li>
+                                      <li>• Take with fat-containing meal for absorption</li>
+                                      <li>• Retest in 6-8 weeks to monitor response</li>
+                                      <li>• Assess for malabsorption issues</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Clinical Considerations:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Add Vitamin K2 co-supplementation (45-180 mcg)</li>
+                                      <li>• Increase dietary sources (fatty fish, fortified foods)</li>
+                                      <li>• Safe sun exposure when possible (10-30 min)</li>
+                                      <li>• Discuss with healthcare provider for personalized plan</li>
+                                  </ul>
+                              </div>
+                          </div>
+      `
+          break
+          
+        case 'insufficiency':
+          priorityClass = 'border-orange-200'
+          iconBg = 'bg-orange-100'
+          iconColor = 'text-orange-600'
+          priorityLabel = 'MEDIUM PRIORITY'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Insufficient - Normal: 30-100 ng/mL)
+                          </p>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Recommended Actions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Moderate-dose D3 supplementation (4,000-5,000 IU daily)</li>
+                                      <li>• Take with fat-containing meal</li>
+                                      <li>• Retest in 8-12 weeks</li>
+                                      <li>• Monitor for improvement to optimal range (50-80 ng/mL)</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Lifestyle Optimization:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Consider Vitamin K2 co-supplementation</li>
+                                      <li>• Increase dietary sources (salmon, mackerel, sardines)</li>
+                                      <li>• Safe sun exposure (10-20 min, 2-3x per week)</li>
+                                      <li>• Address any absorption issues with provider</li>
+                                  </ul>
+                              </div>
+                          </div>
+      `
+          break
+          
+        case 'low_normal':
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Acceptable - Optimal: 50-80 ng/mL)
+                          </p>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Maintenance Recommendations:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Maintenance D3 supplementation (2,000-3,000 IU daily)</li>
+                                      <li>• Continue taking with fat-containing meal</li>
+                                      <li>• Retest in 3-6 months</li>
+                                      <li>• Consider optimizing to 50-80 ng/mL range</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Lifestyle Support:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Regular sun exposure (15-20 min, 3-4x per week)</li>
+                                      <li>• Include vitamin D-rich foods in diet</li>
+                                      <li>• Consider seasonal adjustments (higher dose in winter)</li>
+                                      <li>• Monitor if levels trend downward</li>
+                                  </ul>
+                              </div>
+                          </div>
+      `
+          break
+          
+        case 'optimal':
+          priorityClass = 'border-green-200'
+          iconBg = 'bg-green-100'
+          iconColor = 'text-green-600'
+          priorityLabel = 'OPTIMAL'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Optimal Range: 50-80 ng/mL) ✓
+                          </p>
+                          <div class="bg-green-50 border border-green-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-green-800 mb-1">✓ On Track</p>
+                              <p class="text-xs text-green-700">Your vitamin D level is in the optimal range. Maintain your current plan.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Maintenance Plan:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Continue current D3 dose (1,000-2,000 IU daily)</li>
+                                      <li>• Keep taking with fat-containing meal</li>
+                                      <li>• Annual recheck recommended</li>
+                                      <li>• No need to increase dosing</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Ongoing Support:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Continue balanced diet with vitamin D sources</li>
+                                      <li>• Maintain regular outdoor activity</li>
+                                      <li>• Adjust dose seasonally if needed</li>
+                                      <li>• Monitor if life circumstances change</li>
+                                  </ul>
+                              </div>
+                          </div>
+      `
+          break
+          
+        case 'high':
+          priorityClass = 'border-red-200'
+          iconBg = 'bg-red-100'
+          iconColor = 'text-red-600'
+          priorityLabel = 'CAUTION'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              Current level: <strong>${Math.round(vitaminDValue)} ng/mL</strong> (Above Optimal - Risk of Toxicity)
+                          </p>
+                          <div class="bg-red-50 border border-red-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-red-800 mb-1">⚠️ Caution: High Level</p>
+                              <p class="text-xs text-red-700">Elevated vitamin D can lead to hypercalcemia and other complications.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Immediate Actions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong>HOLD all vitamin D supplementation</strong></li>
+                                      <li>• Reduce fortified food intake</li>
+                                      <li>• Retest in 3 months to monitor decline</li>
+                                      <li>• Check serum calcium levels</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Clinical Follow-up:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Consult healthcare provider promptly</li>
+                                      <li>• Assess for symptoms of hypervitaminosis D</li>
+                                      <li>• Monitor kidney function if appropriate</li>
+                                      <li>• Re-evaluate supplementation regimen</li>
+                                  </ul>
+                                  <p class="text-xs text-red-600 font-medium mt-2">Do NOT continue routine high-dose supplementation.</p>
+                              </div>
+                          </div>
+      `
+          break
+          
+        default:
+          return { shown: false, vitaminDValue: vitaminDValue, status: status, html: '' }
+      }
+      
+      const html = `
+              <section data-test="vitamin-d-card" class="bg-white rounded-lg p-4 border ${priorityClass}">
+                  <div class="flex items-start">
+                      <div class="${iconBg} p-2 rounded-full mr-4 mt-1">
+                          <i class="fas fa-sun ${iconColor}"></i>
+                      </div>
+                      <div class="flex-1">
+                          <h4 class="font-semibold text-gray-800 mb-1">
+                              Vitamin D Optimization 
+                              <span class="text-xs text-blue-600">(Preview dynamic)</span>
+                              ${priorityLabel ? `<span class="ml-2 text-xs font-bold ${iconColor}">${priorityLabel}</span>` : ''}
+                          </h4>
+                          ${recommendations}
+                      </div>
+                  </div>
+              </section>
+      `
+      
+      return { shown: true, vitaminDValue: vitaminDValue, status: status, html: html.trim() }
+    }
+    
+    // Apply the helpers to the request body
+    const vitaminDValue = getVitaminDValueLocal(body.biomarkers)
+    const cardResult = generateDynamicVitaminDCardLocal(vitaminDValue)
+    
+    // Log for debugging (safe - no PHI, no DB)
+    console.log(`[${fingerprint}] Vitamin D probe: tenant=${tenant}, vitaminD=${vitaminDValue}, status=${cardResult.status}, shown=${cardResult.shown}`)
+    
+    // Return success with card data (standard contract)
+    return c.json({
+      success: true,
+      shown: cardResult.shown,
+      vitaminDValue: cardResult.vitaminDValue,
+      status: cardResult.status,
+      html: cardResult.html,
+      fingerprint: fingerprint
+    })
+    
+  } catch (error) {
+    // Catch-all for unexpected errors
+    const err = error as Error
+    console.error(`[${fingerprint}] Unexpected error:`, err.message)
+    return c.json({
+      success: false,
+      error: 'Probe failed',
+      details: [{ field: 'system', message: 'Internal probe error' }],
+      fingerprint: fingerprint
+    }, 500)
+  }
+})
+
+// PREVIEW: HbA1c/Glucose Probe Endpoint (Dynamic Fix Pack #3)
+app.post('/api/report/preview/hba1c', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `hba1c-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
+  try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    // Log warning if DB binding present but don't fail (allows local dev/preview)
+    const { env } = c
+    if (env.DB) {
+      console.warn(`[${fingerprint}] ⚠️  DB binding present - probe will not access DB`)
+    }
+    
+    // Extract tenant from header or query param
+    const tenantFromHeader = c.req.header('X-Tenant-ID')
+    const tenantFromQuery = c.req.query('tenant')
+    const tenant = tenantFromHeader || tenantFromQuery
+    
+    // Validate tenant
+    if (!tenant) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+      }, 400)
+    }
+    
+    if (!ALLOWED_TENANTS.includes(tenant)) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Invalid tenant' }]
+      }, 400)
+    }
+    
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
+      }
+    }
+    
+    // Validate shape: biomarkers must be object if present
+    if (body.biomarkers !== undefined && (typeof body.biomarkers !== 'object' || body.biomarkers === null || Array.isArray(body.biomarkers))) {
+      console.error(`[${fingerprint}] Invalid biomarkers shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - biomarkers must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    // SELF-CONTAINED HELPERS: Define locally to avoid any undefined references
+    
+    // Helper: Extract HbA1c value from biomarkers object
+    function getHba1cValueLocal(biomarkers: any): number | null {
+      if (!biomarkers || typeof biomarkers !== 'object') return null
+      
+      const hba1cKeys = ['hba1c', 'HbA1c', 'HBA1C', 'a1c', 'A1C', 'hemoglobinA1c', 'glycated_hemoglobin']
+      
+      for (const key of hba1cKeys) {
+        const value = biomarkers[key]
+        if (value != null && !isNaN(Number(value))) {
+          const numValue = Number(value)
+          // Sanity check: HbA1c should be between 3% and 15%
+          if (numValue >= 3 && numValue <= 15) {
+            return numValue
+          }
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Extract fasting glucose value from biomarkers object
+    function getGlucoseValueLocal(biomarkers: any): number | null {
+      if (!biomarkers || typeof biomarkers !== 'object') return null
+      
+      const glucoseKeys = ['glucose', 'fastingGlucose', 'fasting_glucose', 'bloodGlucose', 'blood_glucose', 'fpg', 'FPG']
+      
+      for (const key of glucoseKeys) {
+        const value = biomarkers[key]
+        if (value != null && !isNaN(Number(value))) {
+          const numValue = Number(value)
+          // Sanity check: Fasting glucose should be between 40 and 400 mg/dL
+          if (numValue >= 40 && numValue <= 400) {
+            return numValue
+          }
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Classify glycemic status into clinical tiers
+    function classifyGlycemicStatusLocal(hba1c: number | null, glucose: number | null): string | null {
+      // Priority: Use HbA1c if available (gold standard)
+      if (hba1c != null) {
+        if (hba1c >= 8.0) {
+          return 'high_risk_diabetes'
+        } else if (hba1c >= 6.5) {
+          return 'diabetes'
+        } else if (hba1c >= 6.0) {
+          return 'prediabetes'
+        } else if (hba1c >= 5.7) {
+          return 'elevated_normal'
+        } else {
+          return 'normal'
+        }
+      }
+      
+      // Fallback: Use glucose if HbA1c not available
+      if (glucose != null) {
+        if (glucose >= 200) {
+          return 'high_risk_diabetes'
+        } else if (glucose >= 126) {
+          return 'diabetes'
+        } else if (glucose >= 110) {
+          return 'prediabetes'
+        } else if (glucose >= 100) {
+          return 'elevated_normal'
+        } else {
+          return 'normal'
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Generate dynamic HbA1c card with gating logic
+    function generateDynamicHbA1cCardLocal(hba1c: number | null, glucose: number | null): { shown: boolean; hba1cValue: number | null; glucoseValue: number | null; status: string | null; html: string } {
+      const status = classifyGlycemicStatusLocal(hba1c, glucose)
+      
+      // Hide if no data or if normal (no action needed)
+      if (status === null || status === 'normal') {
+        return { shown: false, hba1cValue: hba1c, glucoseValue: glucose, status, html: '' }
+      }
+      
+      // Generate HTML based on status
+      let priorityClass = 'border-yellow-200'
+      let iconBg = 'bg-yellow-100'
+      let iconColor = 'text-yellow-600'
+      let priorityLabel = ''
+      let title = ''
+      let recommendations = ''
+      
+      const hba1cDisplay = hba1c != null ? `${hba1c.toFixed(1)}%` : 'Not measured'
+      const glucoseDisplay = glucose != null ? `${Math.round(glucose)} mg/dL` : 'Not measured'
+      
+      switch (status) {
+        case 'elevated_normal':
+          priorityLabel = '⚠️ WATCH'
+          title = 'Glucose Elevated - Increased Diabetes Risk'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              <strong>HbA1c:</strong> ${hba1cDisplay} (Normal: < 5.7%) &nbsp;&nbsp;
+                              <strong>Fasting Glucose:</strong> ${glucoseDisplay} (Normal: < 100 mg/dL)
+                          </p>
+                          <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-yellow-800 mb-1">⚠️ Increased Risk</p>
+                              <p class="text-xs text-yellow-700">You are at increased risk for developing type 2 diabetes.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Recommended Actions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Weight management: 5-7% weight loss if BMI > 25</li>
+                                      <li>• Physical activity: 150 minutes/week moderate exercise</li>
+                                      <li>• Low glycemic index diet</li>
+                                      <li>• Increase fiber intake (25-30g daily)</li>
+                                      <li>• Reduce refined carbs and added sugars</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Monitoring:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Retest HbA1c in 6 months</li>
+                                      <li>• Consider consultation with registered dietitian</li>
+                                      <li>• Monitor weight and blood pressure</li>
+                                  </ul>
+                              </div>
+                          </div>
+          `
+          break
+          
+        case 'prediabetes':
+          priorityClass = 'border-orange-200'
+          iconBg = 'bg-orange-100'
+          iconColor = 'text-orange-600'
+          priorityLabel = '🟠 HIGH PRIORITY'
+          title = 'Prediabetes - Urgent Lifestyle Intervention Needed'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              <strong>HbA1c:</strong> ${hba1cDisplay} (Prediabetes: 6.0-6.4%) &nbsp;&nbsp;
+                              <strong>Fasting Glucose:</strong> ${glucoseDisplay} (Prediabetes: 110-125 mg/dL)
+                          </p>
+                          <div class="bg-orange-50 border border-orange-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-orange-800 mb-1">🟠 High Risk of Progression</p>
+                              <p class="text-xs text-orange-700">Aggressive intervention can REVERSE this condition and prevent diabetes.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Intensive Interventions:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong>Weight loss goal: 7-10% of body weight</strong></li>
+                                      <li>• <strong>Exercise: 300 min/week for best results</strong></li>
+                                      <li>• Low glycemic diet with calorie restriction</li>
+                                      <li>• High fiber (30-35g daily)</li>
+                                      <li>• Eliminate sugary beverages</li>
+                                      <li>• Include resistance training 2-3x/week</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Medical Follow-Up:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong>Discuss metformin with physician</strong> (especially if BMI ≥ 35)</li>
+                                      <li>• Retest HbA1c in 3 months</li>
+                                      <li>• Screen for complications (eyes, kidneys)</li>
+                                      <li>• Check lipid panel and blood pressure</li>
+                                      <li>• Consider continuous glucose monitor (CGM)</li>
+                                  </ul>
+                              </div>
+                          </div>
+          `
+          break
+          
+        case 'diabetes':
+          priorityClass = 'border-red-200'
+          iconBg = 'bg-red-100'
+          iconColor = 'text-red-600'
+          priorityLabel = '🔴 URGENT'
+          title = 'Diabetes Range - Immediate Physician Referral Required'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              <strong>HbA1c:</strong> ${hba1cDisplay} (Diabetes: ≥ 6.5%) &nbsp;&nbsp;
+                              <strong>Fasting Glucose:</strong> ${glucoseDisplay} (Diabetes: ≥ 126 mg/dL)
+                          </p>
+                          <div class="bg-red-50 border border-red-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-red-800 mb-1">🔴 URGENT: Immediate Physician Referral</p>
+                              <p class="text-xs text-red-700">Your labs indicate type 2 diabetes. Do NOT attempt self-management without physician guidance.</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Immediate Next Steps:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong>Schedule physician appointment THIS WEEK</strong></li>
+                                      <li>• Confirm diagnosis with repeat HbA1c or fasting glucose</li>
+                                      <li>• Discuss medication options (metformin, GLP-1 agonists, etc.)</li>
+                                      <li>• Comprehensive diabetes education program</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Complication Screening:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• Eye exam (retinopathy screening)</li>
+                                      <li>• Kidney function tests (creatinine, urine albumin)</li>
+                                      <li>• Foot examination (neuropathy check)</li>
+                                      <li>• Lipid panel (cardiovascular risk)</li>
+                                      <li>• Blood pressure monitoring</li>
+                                  </ul>
+                              </div>
+                          </div>
+                          <div class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded">
+                              <p class="text-xs text-gray-600">
+                                  <strong>Note:</strong> This report is NOT a diabetes diagnosis tool. Diabetes must be confirmed by a physician with repeat testing.
+                              </p>
+                          </div>
+          `
+          break
+          
+        case 'high_risk_diabetes':
+          priorityClass = 'border-red-200'
+          iconBg = 'bg-red-100'
+          iconColor = 'text-red-600'
+          priorityLabel = '🔴 CRITICAL'
+          title = 'Severe Hyperglycemia - Urgent Medical Attention Required'
+          recommendations = `
+                          <p class="text-sm text-gray-600 mb-3">
+                              <strong>HbA1c:</strong> ${hba1cDisplay} (High-Risk: ≥ 8.0%) &nbsp;&nbsp;
+                              <strong>Fasting Glucose:</strong> ${glucoseDisplay} (High-Risk: ≥ 200 mg/dL)
+                          </p>
+                          <div class="bg-red-50 border border-red-200 rounded p-3 mb-3">
+                              <p class="text-sm font-semibold text-red-800 mb-1">🔴 CRITICAL: Severe Hyperglycemia</p>
+                              <p class="text-xs text-red-700 font-bold">⚠️ CALL YOUR DOCTOR TODAY OR GO TO URGENT CARE</p>
+                          </div>
+                          <div class="grid md:grid-cols-2 gap-4">
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Immediate Action:</p>
+                                  <ul class="text-xs text-gray-600 space-y-1">
+                                      <li>• <strong class="text-red-600">Contact physician TODAY</strong></li>
+                                      <li>• Risk of diabetic ketoacidosis (DKA) or hyperosmolar state</li>
+                                      <li>• May require immediate medication adjustment or hospitalization</li>
+                                      <li>• DO NOT delay medical care</li>
+                                      <li>• DO NOT attempt lifestyle changes alone</li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <p class="text-sm font-medium text-gray-700 mb-2">Warning Symptoms (Seek Emergency Care):</p>
+                                  <ul class="text-xs text-red-600 space-y-1">
+                                      <li>• Excessive thirst or urination</li>
+                                      <li>• Unexplained weight loss</li>
+                                      <li>• Blurred vision</li>
+                                      <li>• Confusion or difficulty concentrating</li>
+                                      <li>• Fruity breath odor</li>
+                                      <li>• Nausea or vomiting</li>
+                                  </ul>
+                              </div>
+                          </div>
+                          <div class="mt-3 p-2 bg-red-50 border border-red-200 rounded">
+                              <p class="text-xs text-red-700 font-semibold">
+                                  ⚠️ IMPORTANT: If you have symptoms of hyperglycemia (excessive thirst, frequent urination, blurred vision), seek emergency medical care immediately.
+                              </p>
+                          </div>
+          `
+          break
+          
+        default:
+          return { shown: false, hba1cValue: hba1c, glucoseValue: glucose, status, html: '' }
+      }
+      
+      const html = `
+    <section class="mt-4 p-4 bg-white border ${priorityClass} rounded-lg shadow-sm">
+      <div class="flex items-start gap-3">
+        <div class="${iconBg} ${iconColor} p-2 rounded-full">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-base font-semibold text-gray-800">
+              ${title}
+            </h3>
+            <span class="text-xs font-bold ${iconColor} px-2 py-1 rounded">${priorityLabel}</span>
+          </div>
+          ${recommendations}
+          <p class="text-xs text-gray-500 mt-3 italic">(Preview dynamic - Fix Pack #3)</p>
+        </div>
+      </div>
+    </section>
+      `
+      
+      return {
+        shown: true,
+        hba1cValue: hba1c,
+        glucoseValue: glucose,
+        status,
+        html
+      }
+    }
+    
+    // Extract values and generate card
+    const biomarkers = body.biomarkers || {}
+    const hba1c = getHba1cValueLocal(biomarkers)
+    const glucose = getGlucoseValueLocal(biomarkers)
+    const cardResult = generateDynamicHbA1cCardLocal(hba1c, glucose)
+    
+    // Sanitize and log safely (no PHI)
+    console.log(`[${fingerprint}] HbA1c probe executed: hba1c=${hba1c != null ? 'present' : 'null'}, glucose=${glucose != null ? 'present' : 'null'}, status=${cardResult.status}, shown=${cardResult.shown}`)
+    
+    return c.json({
+      success: true,
+      shown: cardResult.shown,
+      hba1cValue: cardResult.hba1cValue,
+      glucoseValue: cardResult.glucoseValue,
+      status: cardResult.status,
+      html: cardResult.html,
+      fingerprint: fingerprint
+    })
+    
+  } catch (unexpectedError: any) {
+    console.error(`[${fingerprint}] Unexpected error in HbA1c probe:`, unexpectedError)
+    return c.json({
+      success: false,
+      error: 'Probe failed',
+      details: [{ field: 'system', message: 'Internal probe error' }],
+      fingerprint: fingerprint
+    }, 500)
+  }
+})
+
+// PREVIEW PROBE: Dynamic Omega-3 Recommendation (Fix Pack #4)
+app.post('/api/report/preview/omega3', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `omega3-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
+  try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    const { env } = c
+    if (env.DB) {
+      console.warn(`[${fingerprint}] ⚠️  DB binding present - probe will not access DB`)
+    }
+    
+    // Extract tenant from header or query param
+    const tenantFromHeader = c.req.header('X-Tenant-ID')
+    const tenantFromQuery = c.req.query('tenant')
+    const tenant = tenantFromHeader || tenantFromQuery
+    
+    // Validate tenant
+    if (!tenant) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+      }, 400)
+    }
+    
+    if (!ALLOWED_TENANTS.includes(tenant)) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Invalid tenant' }]
+      }, 400)
+    }
+    
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
+      }
+    }
+    
+    // Extract data from request body
+    const biomarkers = body.biomarkers || {}
+    const risk = body.risk || {}
+    const medicalHistory = body.medicalHistory || {}
+    const medications = body.medications || []
+    const dietary = body.dietary || {}
+    const supplements = body.supplements || []
+    
+    // Build Omega-3 card using shared helper
+    const cardResult = buildOmega3CardResult(
+      biomarkers,
+      risk,
+      medicalHistory,
+      medications,
+      dietary,
+      supplements
+    )
+    
+    // Sanitize and log safely (no PHI)
+    console.log(`[${fingerprint}] Omega-3 probe executed: tg=${cardResult.triglycerides != null ? 'present' : 'null'}, ascvd=${cardResult.ascvdRisk != null ? 'present' : 'null'}, tier=${cardResult.tier}, shown=${cardResult.shown}`)
+    
+    return c.json({
+      success: true,
+      shown: cardResult.shown,
+      triglycerides: cardResult.triglycerides,
+      ascvdRisk: cardResult.ascvdRisk,
+      omega3Index: cardResult.omega3Index,
+      tier: cardResult.tier,
+      priority: cardResult.priority,
+      html: cardResult.html,
+      fingerprint: fingerprint
+    })
+    
+  } catch (unexpectedError: any) {
+    console.error(`[${fingerprint}] Unexpected error in Omega-3 probe:`, unexpectedError)
+    return c.json({
+      success: false,
+      error: 'Probe failed',
+      details: [{ field: 'system', message: 'Internal probe error' }],
+      fingerprint: fingerprint
+    }, 500)
+  }
+})
+
 // Dynamic report route
 app.get('/report', async (c) => {
   const { env } = c
@@ -1317,6 +2637,104 @@ app.get('/report', async (c) => {
           </div>
         `
       }).join('')
+    }
+
+    // ========== Vitamin D Dynamic Card (Fix Pack #2) ==========
+    
+    /**
+     * Extract Vitamin D value from comprehensive data
+     * Uses the shared helper from vitaminD-dynamic.ts
+     */
+    function getVitaminDValue(): number | null {
+      if (!PREVIEW_DYNAMIC_VITAMIN_D) return null
+      if (!comprehensiveData) return null
+      
+      // Use the imported shared helper
+      return extractVitaminDValueFromComprehensiveData(comprehensiveData)
+    }
+    
+    /**
+     * Generate dynamic Vitamin D card
+     * Returns HTML or empty string based on data availability and feature flag
+     */
+    function generateDynamicVitaminDCard(): string {
+      if (!PREVIEW_DYNAMIC_VITAMIN_D) return ''
+      
+      const vitaminDValue = getVitaminDValue()
+      
+      // Use shared helper to build card
+      const cardResult = buildVitaminDCardResult(vitaminDValue)
+      
+      return cardResult.shown ? cardResult.html : ''
+    }
+    
+    /**
+     * Get HbA1c value from comprehensive data
+     * Returns null if feature flag disabled or no data available
+     */
+    function getHba1cValue(): number | null {
+      if (!PREVIEW_DYNAMIC_HBA1C) return null
+      if (!comprehensiveData) return null
+      
+      // Use the imported shared helper
+      return extractHba1cValueFromComprehensiveData(comprehensiveData)
+    }
+    
+    /**
+     * Get fasting glucose value from comprehensive data
+     * Returns null if feature flag disabled or no data available
+     */
+    function getGlucoseValue(): number | null {
+      if (!PREVIEW_DYNAMIC_HBA1C) return null
+      if (!comprehensiveData) return null
+      
+      // Use the imported shared helper
+      return extractGlucoseValueFromComprehensiveData(comprehensiveData)
+    }
+    
+    /**
+     * Generate dynamic HbA1c/Glucose card
+     * Returns HTML or empty string based on data availability and feature flag
+     */
+    function generateDynamicHbA1cCard(): string {
+      if (!PREVIEW_DYNAMIC_HBA1C) return ''
+      
+      const hba1cValue = getHba1cValue()
+      const glucoseValue = getGlucoseValue()
+      
+      // Use shared helper to build card
+      const cardResult = buildHbA1cCardResult(hba1cValue, glucoseValue)
+      
+      return cardResult.shown ? cardResult.html : ''
+    }
+    
+    /**
+     * Generate dynamic Omega-3 card
+     * Returns HTML or empty string based on data availability and feature flag
+     */
+    function generateDynamicOmega3Card(): string {
+      if (!PREVIEW_DYNAMIC_OMEGA3) return ''
+      if (!comprehensiveData) return ''
+      
+      // Extract data from comprehensive structure
+      const biomarkers = comprehensiveData.biomarkers || {}
+      const risk = comprehensiveData.risk || {}
+      const medicalHistory = comprehensiveData.medicalHistory || {}
+      const medications = comprehensiveData.medications || []
+      const dietary = comprehensiveData.dietary || {}
+      const supplements = comprehensiveData.supplements || []
+      
+      // Use shared helper to build card
+      const cardResult = buildOmega3CardResult(
+        biomarkers,
+        risk,
+        medicalHistory,
+        medications,
+        dietary,
+        supplements
+      )
+      
+      return cardResult.shown ? cardResult.html : ''
     }
 
     function generateATMSection() {
@@ -3716,15 +5134,9 @@ app.get('/report', async (c) => {
                                                   <li>• Regular aerobic exercise</li>
                                               </ul>
                                           </div>
-                                          <div>
-                                              <p class="font-medium">Vitamin D Optimization:</p>
-                                              <ul class="ml-4 mt-1 text-xs space-y-1">
-                                                  <li>• D3 supplementation 4000 IU daily</li>
-                                                  <li>• Take with fat-containing meal</li>
-                                                  <li>• Retest in 8-12 weeks</li>
-                                                  <li>• Consider K2 co-supplementation</li>
-                                              </ul>
-                                          </div>
+                                          ${generateDynamicVitaminDCard()}
+                                          ${generateDynamicHbA1cCard()}
+                                          ${generateDynamicOmega3Card()}
                                       </div>
                                   </div>
                               </div>
@@ -5577,17 +6989,47 @@ app.post('/api/assessment/comprehensive', async (c) => {
   const dryRun = (env.DRY_RUN || 'true').toLowerCase() === 'true'
   
   try {
+    // DIAGNOSTIC: Log incoming data structure (non-PHI)
+    console.log('[DIAGNOSTIC] Assessment submission - keys received:', Object.keys(assessmentData).join(', '))
+    console.log('[DIAGNOSTIC] Has nested demographics?', 'demographics' in assessmentData)
+    console.log('[DIAGNOSTIC] Top-level fullName?', 'fullName' in assessmentData)
+    console.log('[DIAGNOSTIC] Top-level dateOfBirth?', 'dateOfBirth' in assessmentData)
+    console.log('[DIAGNOSTIC] Top-level gender?', 'gender' in assessmentData)
+    
     // Enhanced data validation and structure handling
     const demo = assessmentData.demographics || assessmentData
     const clinical = assessmentData.clinical || assessmentData
     const biomarkers = assessmentData.biomarkers || assessmentData
     
+    // DIAGNOSTIC: Log what we're validating against
+    console.log('[DIAGNOSTIC] Validating demo object - has fullName?', 'fullName' in demo, 'value type:', typeof demo.fullName)
+    console.log('[DIAGNOSTIC] Validating demo object - has dateOfBirth?', 'dateOfBirth' in demo, 'value type:', typeof demo.dateOfBirth)
+    console.log('[DIAGNOSTIC] Validating demo object - has gender?', 'gender' in demo, 'value type:', typeof demo.gender)
+    
     // Validate required demographics data
-    if (!demo.fullName || !demo.dateOfBirth || !demo.gender) {
+    // Trim strings and check for actual content (not just whitespace or empty strings)
+    const fullNameValue = (demo.fullName || '').toString().trim()
+    const dateOfBirthValue = (demo.dateOfBirth || '').toString().trim()
+    const genderValue = (demo.gender || '').toString().trim()
+    
+    if (!fullNameValue || !dateOfBirthValue || !genderValue) {
+      console.error('[DIAGNOSTIC] Validation failed - missing required fields')
+      console.error('[DIAGNOSTIC] demo.fullName:', demo.fullName, '(trimmed:', fullNameValue, ')')
+      console.error('[DIAGNOSTIC] demo.dateOfBirth:', demo.dateOfBirth, '(trimmed:', dateOfBirthValue, ')')
+      console.error('[DIAGNOSTIC] demo.gender:', demo.gender, '(trimmed:', genderValue, ')')
       return c.json({
         success: false,
         error: 'Missing required demographic data (fullName, dateOfBirth, gender)',
-        received: Object.keys(assessmentData)
+        received: Object.keys(assessmentData),
+        diagnostic: {
+          demoKeys: Object.keys(demo),
+          hasFullName: 'fullName' in demo,
+          hasDateOfBirth: 'dateOfBirth' in demo,
+          hasGender: 'gender' in demo,
+          fullNameValue: fullNameValue || 'EMPTY',
+          dateOfBirthValue: dateOfBirthValue || 'EMPTY',
+          genderValue: genderValue || 'EMPTY'
+        }
       }, 400)
     }
     
