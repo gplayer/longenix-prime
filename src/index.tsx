@@ -1119,6 +1119,316 @@ app.post('/api/dev/try', async (c) => {
   }
 })
 
+// ========== PREVIEW: LDL Dynamic Probe (Fix Pack #1) ==========
+
+// PREVIEW: LDL Probe Endpoint (Dynamic Fix Pack #1)
+// Route: POST /api/report/preview/ldl
+// Auth: Basic Auth (same as other endpoints)
+// Tenant: X-Tenant-ID required
+// Purpose: Test LDL dynamic tiering logic with custom data
+// SAFETY: NO DB WRITES - returns JSON analysis only
+app.post('/api/report/preview/ldl', async (c) => {
+  // Generate unique fingerprint for error tracking
+  const fingerprint = `ldl-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`
+  
+  try {
+    // CRITICAL: DB Guard - NEVER access database in this probe
+    // Log warning if DB binding present but don't fail (allows local dev/preview)
+    const { env } = c
+    if (env.DB) {
+      console.warn(`[${fingerprint}] ⚠️  DB binding present - probe will not access DB`)
+    }
+    
+    // Extract tenant from header or query param
+    const tenantFromHeader = c.req.header('X-Tenant-ID')
+    const tenantFromQuery = c.req.query('tenant')
+    const tenant = tenantFromHeader || tenantFromQuery
+    
+    // Validate tenant
+    if (!tenant) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Missing or invalid tenant' }]
+      }, 400)
+    }
+    
+    if (!ALLOWED_TENANTS.includes(tenant)) {
+      return c.json({
+        success: false,
+        error: 'Validation failed',
+        details: [{ field: 'tenant', message: 'Invalid tenant' }]
+      }, 400)
+    }
+    
+    // Defensive body parsing: allow empty body, fall back to {}
+    let rawText: string
+    try {
+      rawText = await c.req.text()
+    } catch (readError) {
+      console.error(`[${fingerprint}] Failed to read request body`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Could not read request body' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    let body: any = {}
+    if (rawText && rawText.trim() !== '') {
+      try {
+        body = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error(`[${fingerprint}] Invalid JSON in request body`)
+        return c.json({
+          success: false,
+          error: 'Probe failed',
+          details: [{ field: 'input', message: 'Invalid JSON or shape' }],
+          fingerprint: fingerprint
+        }, 422)
+      }
+    }
+    
+    // Validate shape: biomarkers and risk must be objects if present
+    if (body.biomarkers !== undefined && (typeof body.biomarkers !== 'object' || body.biomarkers === null || Array.isArray(body.biomarkers))) {
+      console.error(`[${fingerprint}] Invalid biomarkers shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - biomarkers must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    if (body.risk !== undefined && (typeof body.risk !== 'object' || body.risk === null || Array.isArray(body.risk))) {
+      console.error(`[${fingerprint}] Invalid risk shape`)
+      return c.json({
+        success: false,
+        error: 'Probe failed',
+        details: [{ field: 'input', message: 'Invalid JSON or shape - risk must be object' }],
+        fingerprint: fingerprint
+      }, 422)
+    }
+    
+    // SELF-CONTAINED HELPERS: Define locally to avoid any undefined references
+    
+    // Helper: Extract LDL cholesterol value from biomarkers object
+    function getLDLValueLocal(biomarkers: any): number | null {
+      if (!biomarkers || typeof biomarkers !== 'object') return null
+      
+      const ldlKeys = ['ldl', 'LDL', 'ldl_cholesterol', 'ldlCholesterol', 'LDL_Cholesterol', 'ldl_c', 'LDLC']
+      
+      for (const key of ldlKeys) {
+        const value = biomarkers[key]
+        if (value != null && !isNaN(Number(value))) {
+          const numValue = Number(value)
+          // Sanity check: LDL typically 20-300 mg/dL
+          if (numValue >= 20 && numValue <= 500) {
+            return numValue
+          }
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Extract ASCVD risk from risk object
+    function getASCVDRiskLocal(risk: any): number | null {
+      if (!risk || typeof risk !== 'object') return null
+      
+      const riskKeys = ['ascvdRisk', 'ascvd_risk', 'ASCVD_Risk', 'ascvd', 'ASCVD', 'tenYearRisk']
+      
+      for (const key of riskKeys) {
+        const value = risk[key]
+        if (value != null && !isNaN(Number(value))) {
+          const numValue = Number(value)
+          // ASCVD risk is a percentage (0.0 to 1.0 or 0 to 100)
+          // Normalize to 0.0-1.0 range
+          if (numValue >= 0 && numValue <= 1) {
+            return numValue
+          } else if (numValue > 1 && numValue <= 100) {
+            return numValue / 100
+          }
+        }
+      }
+      
+      return null
+    }
+    
+    // Helper: Determine LDL target based on ASCVD risk
+    function getLDLTargetLocal(ascvdRisk: number | null): number {
+      if (ascvdRisk == null) {
+        // Default: assume intermediate risk if unknown
+        return 100
+      }
+      
+      // ACC/AHA Guidelines:
+      // High risk (≥ 20%): LDL target < 70 mg/dL
+      // Intermediate risk (7.5% - 20%): LDL target < 100 mg/dL
+      // Low risk (< 7.5%): LDL target < 130 mg/dL
+      
+      if (ascvdRisk >= 0.20) {
+        return 70  // High risk
+      } else if (ascvdRisk >= 0.075) {
+        return 100  // Intermediate risk
+      } else {
+        return 130  // Low risk
+      }
+    }
+    
+    // Helper: Determine if LDL card should be shown (gating logic)
+    function shouldShowLDLCardLocal(ldlValue: number | null, ascvdRisk: number | null): boolean {
+      // Show card if:
+      // 1. LDL > 100 mg/dL (borderline high or above)
+      // OR
+      // 2. ASCVD risk ≥ 7.5% (intermediate or high risk)
+      
+      if (ldlValue != null && ldlValue > 100) {
+        return true
+      }
+      
+      if (ascvdRisk != null && ascvdRisk >= 0.075) {
+        return true
+      }
+      
+      return false
+    }
+    
+    // Helper: Generate priority label based on LDL and ASCVD risk
+    function getPriorityLabelLocal(ldlValue: number | null, ascvdRisk: number | null, ldlTarget: number): string {
+      // Determine urgency based on how far above target
+      
+      if (ldlValue == null) {
+        return 'MEDIUM PRIORITY'
+      }
+      
+      const excessLDL = ldlValue - ldlTarget
+      
+      // High priority if:
+      // - LDL is ≥ 30 mg/dL above target
+      // - High ASCVD risk (≥ 20%) with elevated LDL
+      if (excessLDL >= 30 || (ascvdRisk != null && ascvdRisk >= 0.20 && ldlValue > ldlTarget)) {
+        return 'HIGH PRIORITY'
+      }
+      
+      return 'MEDIUM PRIORITY'
+    }
+    
+    // Helper: Generate dynamic LDL card HTML
+    function generateDynamicLDLCardLocal(ldlValue: number | null, ascvdRisk: number | null): { shown: boolean; ldlValue: number | null; ascvdRisk: number | null; ldlTarget: number | null; html: string } {
+      const shown = shouldShowLDLCardLocal(ldlValue, ascvdRisk)
+      
+      if (!shown) {
+        return { shown: false, ldlValue, ascvdRisk, ldlTarget: null, html: '' }
+      }
+      
+      const ldlTarget = getLDLTargetLocal(ascvdRisk)
+      const priorityLabel = getPriorityLabelLocal(ldlValue, ascvdRisk, ldlTarget)
+      
+      // Determine styling based on priority
+      const isHighPriority = priorityLabel === 'HIGH PRIORITY'
+      const priorityClass = isHighPriority ? 'border-red-200' : 'border-orange-200'
+      const iconBg = isHighPriority ? 'bg-red-100' : 'bg-orange-100'
+      const iconColor = isHighPriority ? 'text-red-600' : 'text-orange-600'
+      const priorityBadge = isHighPriority ? '🔴 HIGH PRIORITY' : '🟠 MEDIUM PRIORITY'
+      
+      // Build HTML card
+      let html = `
+        <div class="bg-white border ${priorityClass} rounded-lg p-6 mb-6">
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex items-center">
+              <div class="${iconBg} ${iconColor} rounded-full p-3 mr-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-gray-800">LDL Cholesterol Management</h3>
+                <p class="text-sm text-gray-500">${priorityBadge}</p>
+              </div>
+            </div>
+          </div>
+      `
+      
+      // Current status
+      html += '<div class="mb-4">'
+      if (ldlValue != null) {
+        html += `<p class="text-sm text-gray-600 mb-2">Current LDL: <strong>${Math.round(ldlValue)} mg/dL</strong></p>`
+      }
+      if (ascvdRisk != null) {
+        const riskPercent = Math.round(ascvdRisk * 100)
+        html += `<p class="text-sm text-gray-600 mb-2">10-Year ASCVD Risk: <strong>${riskPercent}%</strong></p>`
+      }
+      html += `<p class="text-sm text-gray-600">Target LDL: <strong>&lt; ${ldlTarget} mg/dL</strong></p>`
+      html += '</div>'
+      
+      // Recommendations
+      html += '<div class="bg-gray-50 rounded p-4 mb-4">'
+      html += '<p class="text-sm font-medium text-gray-700 mb-2">Recommended Actions:</p>'
+      html += '<ul class="text-xs text-gray-600 space-y-1">'
+      
+      if (isHighPriority) {
+        html += '<li>• <strong>Urgent:</strong> Schedule physician appointment THIS WEEK</li>'
+        html += '<li>• Discuss statin therapy or medication adjustment</li>'
+        html += '<li>• Consider high-intensity statin (atorvastatin 40-80mg or rosuvastatin 20-40mg)</li>'
+      } else {
+        html += '<li>• Schedule physician appointment within 2-4 weeks</li>'
+        html += '<li>• Discuss lipid-lowering medications if lifestyle changes insufficient</li>'
+      }
+      
+      html += '<li>• Adopt heart-healthy diet (Mediterranean or DASH diet)</li>'
+      html += '<li>• Increase physical activity (150 min/week moderate exercise)</li>'
+      html += '<li>• Reduce saturated fat intake (&lt; 7% of calories)</li>'
+      html += '<li>• Consider adding plant sterols (2g/day)</li>'
+      html += '<li>• Retest lipid panel in 3 months</li>'
+      html += '</ul>'
+      html += '</div>'
+      
+      // Disclaimer
+      html += '<div class="border-t border-gray-200 pt-3">'
+      html += '<p class="text-xs text-gray-500 italic">This recommendation is for educational purposes only and does not replace physician judgment. Consult your healthcare provider before making changes to medications or treatment plans.</p>'
+      html += '</div>'
+      
+      html += '</div>'
+      
+      return { shown: true, ldlValue, ascvdRisk, ldlTarget, html }
+    }
+    
+    // Extract values from request body
+    const ldlValue = getLDLValueLocal(body.biomarkers)
+    const ascvdRisk = getASCVDRiskLocal(body.risk)
+    
+    // Generate LDL card
+    const result = generateDynamicLDLCardLocal(ldlValue, ascvdRisk)
+    
+    // Log probe execution (non-sensitive info only)
+    console.log(`[${fingerprint}] LDL probe executed: ldl=${ldlValue ? 'present' : 'null'}, ascvd=${ascvdRisk ? 'present' : 'null'}, target=${result.ldlTarget}, shown=${result.shown}`)
+    
+    // Return successful probe result
+    return c.json({
+      success: true,
+      shown: result.shown,
+      ldlValue: result.ldlValue,
+      ascvdRisk: result.ascvdRisk,
+      ldlTarget: result.ldlTarget,
+      html: result.html,
+      fingerprint: fingerprint
+    }, 200)
+    
+  } catch (error) {
+    // Catch-all error handler
+    const err = error as Error
+    console.error(`[${fingerprint}] LDL probe error:`, err.message)
+    return c.json({
+      success: false,
+      error: 'Probe failed',
+      details: [{ field: '_', message: err.message || 'Unknown error' }],
+      fingerprint: fingerprint
+    }, 500)
+  }
+})
+
 // ========== PREVIEW: Vitamin D Dynamic Helpers (Fix Pack #2) ==========
 // Note: Actual helper functions are defined inside the report route
 // where they have access to comprehensiveData. See generateDynamicVitaminDCard() below.
