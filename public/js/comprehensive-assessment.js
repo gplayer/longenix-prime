@@ -3129,7 +3129,8 @@ class ComprehensiveAssessment {
             const response = await fetch(`${this.apiBase}/api/assessment/comprehensive`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Tenant-ID': 'demo-a'  // PREVIEW: Required for tenant validation in preview environment
                 },
                 body: JSON.stringify(this.formData)
             });
